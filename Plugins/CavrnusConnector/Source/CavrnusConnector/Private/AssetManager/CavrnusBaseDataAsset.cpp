@@ -1,0 +1,2 @@
+#include "AssetManager/CavrnusBaseDataAsset.h"
+

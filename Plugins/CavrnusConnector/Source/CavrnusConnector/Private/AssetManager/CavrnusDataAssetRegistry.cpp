@@ -1,0 +1,1 @@
+#include "AssetManager/CavrnusDataAssetRegistry.h"

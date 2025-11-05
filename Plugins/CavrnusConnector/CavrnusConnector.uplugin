@@ -1,0 +1,70 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "2025.3.2",
+	"FriendlyName": "Cavrnus Spatial Connector",
+	"Description": "Instant Multiplayer/Multi-user. Cavrnus enhances UE experiences and projects by providing access to a Multi-user Platform with a suite of Collaboration features, Multiplayer Synchronization, Agential AI connectivity, Voice & Video Conferencing, Enterprise-class Access and Security, and much more!",
+	"Category": "Multi-user Collaboration Plugin",
+	"CreatedBy": "Cavrnus, Inc.",
+	"CreatedByURL": "http://www.cavrnus.com/",
+	"DocsURL": "https://cavrnus.atlassian.net/wiki/spaces/CSM/overview",
+	"MarketplaceURL": "",
+	"SupportURL": "https://cavrnus.atlassian.net/servicedesk/customer/portal/1/group/-1",
+	"EngineVersion": "5.2.0",
+	"CanContainContent": true,
+	"Installed": true,
+	"SupportedTargetPlatforms": [
+		"Win64"
+	],
+	"Modules": [
+		{
+			"Name": "CavrnusConnector",
+			"Type": "Runtime",
+			"LoadingPhase": "PreDefault",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
+			"Name": "CavrnusConnectorEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
+			"Name": "CavrnusBlueprintModule",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "JsonBlueprintUtilities",
+			"Enabled": true
+		},
+		{
+			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "DatasmithImporter",
+			"Enabled": true
+		},
+		{
+			"Name": "DatasmithCADImporter",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Win64"
+			]
+		},
+		{
+			"Name": "DatasmithRuntime",
+			"Enabled": true
+		}
+	]
+}
