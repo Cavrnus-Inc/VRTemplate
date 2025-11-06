@@ -76,6 +76,9 @@ public:
 
 		for (FCavrnusPawnReady& Callback : DeferredLocalCallbacks)
 			Callback.ExecuteIfBound(CavrnusUser.SpaceConn, CavrnusUser.PropertiesContainerName, CavrnusUser);
+
+		for (auto& CallBack : DeferredLocalUserCallbacks)
+			CallBack();
 	}
 
 	void NotifyRemotePawnReady(const FCavrnusUser& CavrnusUser)
@@ -92,7 +95,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Cavrnus|Pawn",
 		meta = (ToolTip ="Updates the visual pawn type that other clients see when viewing your character. This changes only your remote representation, not your local pawn. PawnType must match the key name defined in the PawnSettingsDataAsset map.",
 		ShortToolTip = "Changes what others see as your pawn"))
-	static void CavrnusSetRemotePawn(const FString& PawnType);
+	void CavrnusSetRemotePawn(const FString& PawnType);
 
 	UFUNCTION(BlueprintCallable, Category="Cavrnus|Pawn")
 	UCavrnusPawnSyncTransform* CavrnusPawnSyncTransform(const FString& PropertyName = "Transform", const bool Relative = false, USceneComponent* SceneComponent = nullptr)
@@ -129,4 +132,5 @@ private:
 	TArray<FCavrnusPawnReady> DeferredAnyCallbacks;
 	TArray<FCavrnusPawnReady> DeferredLocalCallbacks;
 	TArray<FCavrnusPawnReady> DeferredRemoteCallbacks;
+	TArray<TFunction<void()>> DeferredLocalUserCallbacks;
 };

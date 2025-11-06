@@ -8,14 +8,13 @@
 	"CreatedBy": "Cavrnus, Inc.",
 	"CreatedByURL": "http://www.cavrnus.com/",
 	"DocsURL": "https://cavrnus.atlassian.net/wiki/spaces/CSM/overview",
-	"MarketplaceURL": "",
+	"FabURL": "com.epicgames.launcher://ue/Fab/product/e01602cf-776a-4d1e-a22d-5ef0f03e9cd8",
 	"SupportURL": "https://cavrnus.atlassian.net/servicedesk/customer/portal/1/group/-1",
-	"EngineVersion": "5.2.0",
 	"CanContainContent": true,
-	"Installed": true,
-	"SupportedTargetPlatforms": [
-		"Win64"
-	],
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"EnabledByDefault": true,
 	"Modules": [
 		{
 			"Name": "CavrnusConnector",
@@ -34,13 +33,13 @@
 			]
 		},
 		{
-			"Name": "CavrnusBlueprintModule",
-			"Type": "UncookedOnly",
-			"LoadingPhase": "Default",
+      		"Name": "CavrnusBlueprintModule",
+      		"Type": "UncookedOnly",
+      		"LoadingPhase": "Default",
 			"PlatformAllowList": [
 				"Win64"
 			]
-		}
+    	}
 	],
 	"Plugins": [
 		{
@@ -65,6 +64,9 @@
 		{
 			"Name": "DatasmithRuntime",
 			"Enabled": true
-		}
+		},
+	],
+	"SupportedTargetPlatforms": [
+		"Win64"
 	]
 }
