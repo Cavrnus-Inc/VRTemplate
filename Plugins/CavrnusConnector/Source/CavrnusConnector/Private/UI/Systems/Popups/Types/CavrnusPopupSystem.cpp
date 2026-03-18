@@ -37,11 +37,10 @@ void UCavrnusPopupSystem::CloseAll()
 	PopupsMap.Empty();
 }
 
-void UCavrnusPopupSystem::Teardown()
+void UCavrnusPopupSystem::Dispose()
 {
-	if (Displayer)
-		Displayer->RemoveAll();
-
+	Popups.Empty();
+	PopupsMap.Empty();
 	Displayer = nullptr;
 }
 

@@ -23,11 +23,13 @@ protected:
 	FDelegateHandle AnyHandle = FDelegateHandle();
 	FDelegateHandle LocalHandle = FDelegateHandle();
 	FDelegateHandle RemoteHandle = FDelegateHandle();
-	
+
 	TArray<FString> BindingIds;
-	
+
 	UPROPERTY()
 	TObjectPtr<UCavrnusPawnComponent> PawnSetupComp = nullptr;
+
+	bool bTornDown = false;
 
 	void InitializePawnSetupComponent(UCavrnusPawnComponent* Psc);
 

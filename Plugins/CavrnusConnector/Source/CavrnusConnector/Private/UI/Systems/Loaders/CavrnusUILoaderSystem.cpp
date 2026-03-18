@@ -1,8 +1,9 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "UI/Systems/Loaders/CavrnusUILoaderSystem.h"
 
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 #include "UI/Systems/AssetLookup/CavrnusWidgetBlueprintLookup.h"
 #include "UI/Systems/Loaders/CavrnusBaseUILoaderWidget.h"
@@ -38,19 +39,21 @@ void UCavrnusUILoaderSystem::CloseAll()
 {
 	if (Loaders.IsEmpty())
 	{
-		UE_LOG(LogTemp, Error, TEXT("[UCavrnusUILoaderSystem::CloseAll] There are currently no loaders open!"))
+		UE_LOG(LogTemp, Verbose, TEXT("[UCavrnusUILoaderSystem::CloseAll] No loaders open."))
 		return;
 	}
 
-	Displayer->RemoveAll();
+	for (auto Loader : Loaders)
+		Displayer->RemoveWidget(Loader->GetId());
 	
 	Loaders.Empty();
 	LoaderMap.Empty();
 }
 
-void UCavrnusUILoaderSystem::Teardown()
+void UCavrnusUILoaderSystem::Dispose()
 {
-	Displayer->RemoveAll();
+	CloseAll();
+	Displayer = nullptr;
 }
 
 UCavrnusBaseUILoaderWidget* UCavrnusUILoaderSystem::CreateInternal(const UClass* Type, const FCavrnusUILoaderOptions& Options)

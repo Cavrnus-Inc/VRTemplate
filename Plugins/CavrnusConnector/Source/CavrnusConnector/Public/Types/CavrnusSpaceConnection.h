@@ -45,4 +45,9 @@ struct CAVRNUSCONNECTOR_API FCavrnusSpaceConnection
 		: SpaceConnectionId(SpaceConnectionId)
 	{
 	}
+
+	bool IsValid() const
+	{
+		return SpaceConnectionId != -1;
+	}
 };

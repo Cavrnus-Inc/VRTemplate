@@ -54,8 +54,12 @@ struct CAVRNUSCONNECTOR_API FCavrnusSpaceInfo
 	UPROPERTY(BlueprintReadWrite, Category = "Cavrnus|Spaces")
 	TArray<FCavrnusSpaceMember> SpaceMembers;
 
-	FCavrnusSpaceInfo(const FString& SpaceId, const FString& SpaceName, const FString& SpaceThumbnail, const FString& OwnerId, const FDateTime& LastAccess, const TArray<FString>& keywords, const TArray<FCavrnusSpaceMember>& members)
-		: SpaceId(SpaceId), SpaceName(SpaceName), SpaceThumbnail(SpaceThumbnail), OwnerId(OwnerId), LastAccess(LastAccess), Keywords(keywords), SpaceMembers(members)
+	/** @brief Key-value tags associated with the space. */
+	UPROPERTY(BlueprintReadWrite, Category = "Cavrnus|Spaces")
+	TMap<FString, FString> Tags;
+
+	FCavrnusSpaceInfo(const FString& SpaceId, const FString& SpaceName, const FString& SpaceThumbnail, const FString& OwnerId, const FDateTime& LastAccess, const TArray<FString>& keywords, const TArray<FCavrnusSpaceMember>& members, const TMap<FString, FString>& tags = TMap<FString, FString>())
+		: SpaceId(SpaceId), SpaceName(SpaceName), SpaceThumbnail(SpaceThumbnail), OwnerId(OwnerId), LastAccess(LastAccess), Keywords(keywords), SpaceMembers(members), Tags(tags)
 	{
 	}
 

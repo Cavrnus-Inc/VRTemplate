@@ -42,6 +42,7 @@ protected:
 	bool bDoLocalTick = false;
 	bool bDoRemoteTick = false;
 	
+	UPROPERTY(BlueprintReadOnly, Category = "Cavrnus|Pawn")
 	FCavrnusUser User = FCavrnusUser();
 	
 	TArray<FString> BindingIds;

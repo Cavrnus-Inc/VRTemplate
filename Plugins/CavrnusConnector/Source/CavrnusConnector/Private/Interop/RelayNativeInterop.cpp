@@ -107,16 +107,10 @@ void relay_shutdown()
 
    rl_shutdown();
 
-   // Can we unload the DLL here...
-   FPlatformProcess::FreeDllHandle(handle);
-   handle = NULL;
-
-   rl_initialize = NULL;
-   rl_setupcallback = NULL;
-   rl_setupcallback_withpassthrough = NULL;
-   rl_sendmessage = NULL;
-   rl_shutdown = NULL;
-   rl_test = NULL;
+   // Do NOT call FreeDllHandle here. Collab.dll's scheduler thread may still
+   // be running (e.g. processing RTC tasks). Unloading the DLL while its
+   // threads are active causes a crash. The DLL stays loaded but inactive;
+   // relay_loadlibrary() will reuse the existing handle on next PIE start.
 }
 
 bool test_fired = false;

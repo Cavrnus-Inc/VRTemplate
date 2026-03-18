@@ -3,7 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Engine/DataAsset.h"
+#include "AssetManager/CavrnusBaseDataAsset.h"  // Changed from Engine/DataAsset.h
 #include "UI/Systems/AssetLookup/CavrnusWidgetBlueprintLookup.h"
 #include "CavrnusUIConfigAsset.generated.h"
 
@@ -12,7 +12,7 @@ class UCavrnusDesktopCanvasWidgetDisplayer;
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusUIConfigAsset : public UDataAsset
+class CAVRNUSCONNECTOR_API UCavrnusUIConfigAsset : public UCavrnusBaseDataAsset
 {
 	GENERATED_BODY()
 public:

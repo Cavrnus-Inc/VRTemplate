@@ -46,6 +46,11 @@ private:
 	FDelegateHandle AuthStartedHandle;
 	FDelegateHandle ButtonClickedHandle;
 
+	bool bIsConnected = false;
+
+	UPROPERTY()
+	TObjectPtr<UCavrnusEditorAuthenticationManager> ConnManager = nullptr;
+
 	void HandleConnectionState(const ECavrnusEditorConnectedStateEnum& CurrentState);
 	void SetPrimaryText(const FString& InText, const bool bVis = true);
 	void SetSecondaryText(const FString& InText, const bool bVis = true);

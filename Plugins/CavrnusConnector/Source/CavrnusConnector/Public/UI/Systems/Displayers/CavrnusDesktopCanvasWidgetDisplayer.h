@@ -14,10 +14,12 @@ class UOverlay;
  * This displayer utilizes a runtime-created canvas and children for each type of displayable widgets (popups, etc)
  */
 UCLASS(Abstract)
-class CAVRNUSCONNECTOR_API UCavrnusDesktopCanvasWidgetDisplayer : public UUserWidget, public ICavrnusWidgetDisplayer
+class CAVRNUSCONNECTOR_API UCavrnusDesktopCanvasWidgetDisplayer : public UUserWidget, public ICavrnusWidgetDisplayer, public IDisposable
 {
 	GENERATED_BODY()
 public:
+	virtual void Dispose() override;
+	
 	virtual void Setup(UCavrnusWidgetBlueprintLookup* InBlueprintLookup = nullptr) override;
 
 	virtual void DisplayRawWidget(const FGuid& Id, UUserWidget* InWidgetToDisplay) override;

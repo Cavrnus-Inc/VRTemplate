@@ -32,6 +32,7 @@
 #include "Types/CavrnusServerStatus.h"
 #include "Types/CavrnusConnectionStatusEnum.h"
 #include "Types/CavrnusServerMessage.h"
+#include "Types/CavrnusSpaceInfoChangeFlags.h"
 #include "CavrnusRemoteContent.h"
 #include "CavrnusCallbackTypes.generated.h"		// Always last
 
@@ -91,6 +92,14 @@ typedef TFunction<void(const TArray<FCavrnusSpaceInfo>&)> CavrnusAllSpacesInfoEv
  * @param FCavrnusSpaceInfo The space information.
  */
 typedef TFunction<void(const FCavrnusSpaceInfo&)> CavrnusSpaceInfoEvent;
+
+/**
+ * @brief Callback type for handling space info change events with change flags.
+ *
+ * @param FCavrnusSpaceInfo The updated space information.
+ * @param ESpaceInfoChangeFlags Flags indicating which fields changed.
+ */
+typedef TFunction<void(const FCavrnusSpaceInfo&, ESpaceInfoChangeFlags)> CavrnusSpaceInfoChangedEvent;
 
 /**
  * @brief Callback type for handling space begin loading events.

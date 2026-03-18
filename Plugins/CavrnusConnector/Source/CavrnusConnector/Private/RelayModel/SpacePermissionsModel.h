@@ -22,5 +22,7 @@ namespace Cavrnus
 		TMap<FString, bool> CurrPolicyAllowedValues;
 
 		TMap<FString, TArray<CavrnusPolicyUpdated*>> PolicyBindings;
+
+		TArray<FString> RegisteredBindingIds;
 	};
 } // namespace Cavrnus

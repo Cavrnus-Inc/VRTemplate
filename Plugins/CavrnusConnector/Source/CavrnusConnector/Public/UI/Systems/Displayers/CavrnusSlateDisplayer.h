@@ -12,10 +12,11 @@ class UCavrnusBaseUserWidget;
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusSlateDisplayer : public UObject, public ICavrnusWidgetDisplayer
+class CAVRNUSCONNECTOR_API UCavrnusSlateDisplayer : public UDisposableUObject, public ICavrnusWidgetDisplayer
 {
 	GENERATED_BODY()
 public:
+	virtual void Dispose() override;
 	virtual void Setup(UCavrnusWidgetBlueprintLookup* InBlueprintLookup = nullptr) override;
 	
 	virtual void DisplayPopupWidget(

@@ -64,8 +64,9 @@ void UCavrnusToastMessageUISystem::CloseAll()
 	ActiveMessagesMap.Empty();
 }
 
-void UCavrnusToastMessageUISystem::Teardown()
+void UCavrnusToastMessageUISystem::Dispose()
 {
+	CloseAll();
 }
 
 void UCavrnusToastMessageUISystem::StartAutoDismissTimer(UCavrnusBaseToastMessageWidget* Widget, const float Duration)

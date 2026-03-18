@@ -14,6 +14,46 @@ namespace Cavrnus
 
 	SpacePropertyModel::~SpacePropertyModel()
 	{
+		// Remove stale binding entries from the global binding model without invoking their lambdas
+		CavrnusBindingModel* bindingModel = CavrnusBindingModel::GetBindingModel();
+		for (const FString& id : RegisteredBindingIds)
+		{
+			bindingModel->RemoveBindingWithoutUnbind(id);
+		}
+		RegisteredBindingIds.Empty();
+
+		// Delete heap-allocated callback pointers in PropBindings
+		for (auto& kvp : PropBindings)
+		{
+			for (auto* cb : kvp.Value)
+				delete cb;
+		}
+		PropBindings.Empty();
+
+		// Delete heap-allocated callback pointers in ContainerBindings
+		for (auto& kvp : ContainerBindings)
+		{
+			for (auto* cb : kvp.Value)
+				delete cb;
+		}
+		ContainerBindings.Empty();
+
+		// Delete heap-allocated callback pointers in UserVideoFrameBindings
+		for (auto& kvp : UserVideoFrameBindings)
+		{
+			for (auto* cb : kvp.Value)
+				delete cb;
+		}
+		UserVideoFrameBindings.Empty();
+
+		// Untrack any leftover video textures so UE GC can reclaim them
+		for (auto& kvp : CurrSpaceUsersVideoTextures)
+		{
+			if (kvp.Value)
+				CavrnusGCManager::GetGCManager()->UntrackItem(kvp.Value);
+		}
+		CurrSpaceUsersVideoTextures.Empty();
+
 		for (auto& arrived : LocalUserArrivedCallbacks)
 		{
 			delete arrived;
@@ -31,6 +71,10 @@ namespace Cavrnus
 			delete removed;
 		}
 		UserRemovedBindings.Empty();
+
+		// Delete the owned ChatModel
+		delete ChatModel;
+		ChatModel = nullptr;
 	}
 
 	void SpacePropertyModel::UpdateServerPropVal(const FAbsolutePropertyId& fullPropertyId, FPropertyValue value)
@@ -145,6 +189,20 @@ namespace Cavrnus
 		}
 	}
 
+	void SpacePropertyModel::SetPropertyDefinition(const FAbsolutePropertyId& fullPropertyId, const FCavrnusPropertyMetadata& metadata)
+	{
+		CurrPropFullMetadata.FindOrAdd(fullPropertyId) = metadata;
+
+		// Keep CurrPropReadonlyMetadata in sync for backward compat
+		UpdatePropMetadata(fullPropertyId, metadata.bReadOnly);
+	}
+
+	FCavrnusPropertyMetadata SpacePropertyModel::GetPropertyMetadata(const FAbsolutePropertyId& fullPropertyId) const
+	{
+		const FCavrnusPropertyMetadata* found = CurrPropFullMetadata.Find(fullPropertyId);
+		return found ? *found : FCavrnusPropertyMetadata();
+	}
+
 	void SpacePropertyModel::TryExecPropBindings(const FAbsolutePropertyId& fullPropertyId)
 	{
 		const FPropertyValue& activePropVal = GetCurrentPropValue(fullPropertyId);
@@ -154,6 +212,39 @@ namespace Cavrnus
 			auto bindings = PropBindings[fullPropertyId];
 			for (int i = 0; i < bindings.Num(); i++)
 				(*bindings[i])(activePropVal, fullPropertyId.ContainerName, fullPropertyId.PropValueId);
+		}
+
+		// Fire container-level listeners (hierarchical matching)
+		if (!ContainerBindings.IsEmpty())
+		{
+			// Fast path: exact container match (O(1) hash lookup)
+			if (ContainerBindings.Contains(fullPropertyId.ContainerName))
+			{
+				auto listeners = ContainerBindings[fullPropertyId.ContainerName];
+				for (int i = 0; i < listeners.Num(); i++)
+					(*listeners[i])(activePropVal, fullPropertyId.ContainerName, fullPropertyId.PropValueId);
+			}
+
+			// Hierarchical + wildcard: only iterate if bindings exist beyond the exact match
+			for (auto& containerBinding : ContainerBindings)
+			{
+				const FString& boundName = containerBinding.Key;
+				// Skip exact match (already handled above) and non-matching entries
+				if (boundName == fullPropertyId.ContainerName)
+					continue;
+
+				const bool bMatches =
+					boundName == TEXT("*") ||
+					boundName.IsEmpty() ||
+					fullPropertyId.ContainerName.StartsWith(boundName + TEXT("/"));
+
+				if (bMatches)
+				{
+					auto listeners = containerBinding.Value;
+					for (int i = 0; i < listeners.Num(); i++)
+						(*listeners[i])(activePropVal, fullPropertyId.ContainerName, fullPropertyId.PropValueId);
+				}
+			}
 		}
 	}
 
@@ -175,10 +266,66 @@ namespace Cavrnus
 				if (!PropBindings.Contains(fullPropertyId))
 					return;
 				PropBindings[fullPropertyId].Remove(cb);
+				delete cb;
 				if (PropBindings[fullPropertyId].IsEmpty())
 					PropBindings.Remove(fullPropertyId);
 			});
 
+		RegisteredBindingIds.Add(bindingId);
+
+		UCavrnusBinding* binding;
+		binding = NewObject<UCavrnusBinding>();
+		binding->Setup(bindingId);
+
+		return binding;
+	}
+
+	UCavrnusBinding* SpacePropertyModel::BindContainerProperties(const FString& containerName, CavrnusPropertyFunction callback, bool bIncludeExisting)
+	{
+		// Normalize container name ("*" is preserved as wildcard)
+		FString normalizedName = containerName;
+		if (normalizedName != TEXT("*"))
+		{
+			if (normalizedName.StartsWith(TEXT("/")))
+				normalizedName.RemoveFromStart(TEXT("/"));
+			if (normalizedName.EndsWith(TEXT("/")))
+				normalizedName.RemoveFromEnd(TEXT("/"));
+		}
+
+		CavrnusPropertyFunction* cb = new CavrnusPropertyFunction(callback);
+		ContainerBindings.FindOrAdd(normalizedName);
+		ContainerBindings[normalizedName].Add(cb);
+
+		// Fire for all existing properties (hierarchical match)
+		if (bIncludeExisting)
+		{
+			for (auto& kvp : CurrServerPropValues)
+			{
+				const bool bMatches =
+					normalizedName == TEXT("*") ||
+					normalizedName.IsEmpty() ||
+					kvp.Key.ContainerName == normalizedName ||
+					kvp.Key.ContainerName.StartsWith(normalizedName + TEXT("/"));
+
+				if (bMatches)
+				{
+					const FPropertyValue& val = GetCurrentPropValue(kvp.Key);
+					(*cb)(val, kvp.Key.ContainerName, kvp.Key.PropValueId);
+				}
+			}
+		}
+
+		auto bindingId = Cavrnus::CavrnusBindingModel::GetBindingModel()->RegisterBinding([this, normalizedName, cb]()
+			{
+				if (!ContainerBindings.Contains(normalizedName))
+					return;
+				ContainerBindings[normalizedName].Remove(cb);
+				delete cb;
+				if (ContainerBindings[normalizedName].IsEmpty())
+					ContainerBindings.Remove(normalizedName);
+			});
+
+		RegisteredBindingIds.Add(bindingId);
 
 		UCavrnusBinding* binding;
 		binding = NewObject<UCavrnusBinding>();
@@ -203,10 +350,12 @@ namespace Cavrnus
 				if (!UserVideoFrameBindings.Contains(UserConnectionId))
 					return;
 				UserVideoFrameBindings[UserConnectionId].Remove(cb);
+				delete cb;
 				if (UserVideoFrameBindings[UserConnectionId].IsEmpty())
 					UserVideoFrameBindings.Remove(UserConnectionId);
 			});
 
+		RegisteredBindingIds.Add(bindingId);
 
 		UCavrnusBinding* binding;
 		binding = NewObject<UCavrnusBinding>();
@@ -322,9 +471,12 @@ namespace Cavrnus
 		auto bindingId = Cavrnus::CavrnusBindingModel::GetBindingModel()->RegisterBinding([this, added, removed]()
 			{
 				UserAddedBindings.Remove(added);
+				delete added;
 				UserRemovedBindings.Remove(removed);
+				delete removed;
 			});
 
+		RegisteredBindingIds.Add(bindingId);
 
 		UCavrnusBinding* binding;
 		binding = NewObject<UCavrnusBinding>();

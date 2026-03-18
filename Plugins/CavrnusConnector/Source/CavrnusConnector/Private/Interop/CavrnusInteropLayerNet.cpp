@@ -8,7 +8,7 @@
 #include <Interfaces/IPluginManager.h>
 #include <Misc/Paths.h>
 
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #define PERFORMANCE_TRACKING 0
 
 namespace Cavrnus
@@ -242,7 +242,7 @@ namespace Cavrnus
 			UE_LOG(LogCavrnusConnector, Log, TEXT("Starting CollaborationCommunicationSystem Service."));
 
 			// Get settings class
-			const UCavrnusConnectorSettings* settings = UCavrnusSubsystem::Get()->GetSettings();
+			const UCavrnusConnectorSettings* settings = UCavrnusConnectorSettings::Get();
 			if (!settings)
 			{
 				UE_LOG(LogCavrnusConnector, Log, TEXT("[FCavrnusConnectorModule::RunService()] Could not get UCavrnusConnectorSettings class."));

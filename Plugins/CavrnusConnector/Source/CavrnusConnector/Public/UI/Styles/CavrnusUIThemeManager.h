@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "CavrnusUIThemeAsset.h"
-#include "UI/CavrnusUI.h"
+#include "Core/DisposableUObject.h"
 #include "UObject/Object.h"
 #include "CavrnusUIThemeManager.generated.h"
 
@@ -13,11 +13,12 @@ enum class ECavrnusThemeColorRole : uint8;
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusUIThemeManager : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusUIThemeManager : public UDisposableUObject
 {
 	GENERATED_BODY()
 
 public:
+	virtual void Dispose() override;
 	UCavrnusUIThemeAsset* GetActiveTheme() const {return ActiveTheme;}
 
 	void Initialize();

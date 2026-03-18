@@ -10,6 +10,12 @@
 #include "UI/Systems/Popups/CavrnusBasePopupWidget.h"
 #include "UI/Systems/Popups/Types/CavrnusPopupSystem.h"
 
+void UCavrnusSlateDisplayer::Dispose()
+{
+	Super::Dispose();
+	
+}
+
 void UCavrnusSlateDisplayer::Setup(UCavrnusWidgetBlueprintLookup* InBlueprintLookup)
 {
 }

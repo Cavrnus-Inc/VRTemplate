@@ -3,8 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/DisposableUObject.h"
 #include "UI/CavrnusUIConfigAsset.h"
-#include "UObject/Object.h"
 #include "CavrnusScopedMessages.generated.h"
 
 class ICavrnusWidgetDisplayer;
@@ -13,7 +13,7 @@ class UCavrnusToastMessageUISystem;
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusScopedMessages : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusScopedMessages : public UDisposableUObject
 {
 	GENERATED_BODY()
 public:

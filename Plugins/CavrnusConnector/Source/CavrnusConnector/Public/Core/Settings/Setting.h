@@ -3,12 +3,12 @@
 #pragma once
 
 #include "CoreMinimal.h"
-
+#include "Core/Disposable.h"
 /**
  * Templated reactive setting
  */
 template <typename T>
-class CAVRNUSCONNECTOR_API TSetting
+class TSetting : public IDisposable
 {
 public:
 	DECLARE_MULTICAST_DELEGATE_OneParam(FOnChanged, const T&);
@@ -55,6 +55,11 @@ public:
 	}
 	
 	TSharedPtr<TSetting<bool>> Translating(TFunction<bool(const T&)> Transform);
+
+	virtual void Dispose() override
+	{
+		OnChanged.Clear();
+	}
 };
 
 template <typename T>

@@ -28,5 +28,7 @@ namespace Cavrnus
 		TArray<CavrnusChatFunction*> ChatAddedBindings;
 		TArray<CavrnusChatFunction*> ChatUpdatedBindings;
 		TArray<CavrnusChatRemovedFunction*> ChatRemovedBindings;
+
+		TArray<FString> RegisteredBindingIds;
 	};
 } // namespace Cavrnus

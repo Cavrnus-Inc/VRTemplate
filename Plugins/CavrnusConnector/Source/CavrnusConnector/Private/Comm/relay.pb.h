@@ -135,6 +135,9 @@ extern CreateSpaceRespDefaultTypeInternal _CreateSpaceResp_default_instance_;
 class DefinePropertyDefaultValue;
 struct DefinePropertyDefaultValueDefaultTypeInternal;
 extern DefinePropertyDefaultValueDefaultTypeInternal _DefinePropertyDefaultValue_default_instance_;
+class DefinePropertyDefinition;
+struct DefinePropertyDefinitionDefaultTypeInternal;
+extern DefinePropertyDefinitionDefaultTypeInternal _DefinePropertyDefinition_default_instance_;
 class DeleteSpaceReq;
 struct DeleteSpaceReqDefaultTypeInternal;
 extern DeleteSpaceReqDefaultTypeInternal _DeleteSpaceReq_default_instance_;
@@ -387,6 +390,7 @@ template<> ::ServerData::ContinueTransientPropertyUpdate* Arena::CreateMaybeMess
 template<> ::ServerData::CreateSpaceReq* Arena::CreateMaybeMessage<::ServerData::CreateSpaceReq>(Arena*);
 template<> ::ServerData::CreateSpaceResp* Arena::CreateMaybeMessage<::ServerData::CreateSpaceResp>(Arena*);
 template<> ::ServerData::DefinePropertyDefaultValue* Arena::CreateMaybeMessage<::ServerData::DefinePropertyDefaultValue>(Arena*);
+template<> ::ServerData::DefinePropertyDefinition* Arena::CreateMaybeMessage<::ServerData::DefinePropertyDefinition>(Arena*);
 template<> ::ServerData::DeleteSpaceReq* Arena::CreateMaybeMessage<::ServerData::DeleteSpaceReq>(Arena*);
 template<> ::ServerData::EndForceKeepAlive* Arena::CreateMaybeMessage<::ServerData::EndForceKeepAlive>(Arena*);
 template<> ::ServerData::ExitAllSpacesAndLogoutReq* Arena::CreateMaybeMessage<::ServerData::ExitAllSpacesAndLogoutReq>(Arena*);
@@ -780,6 +784,7 @@ class RelayClientMessage final :
     kSetAudioOutputDeviceReq = 34,
     kSetVideoInputDeviceReq = 35,
     kDefinePropertyDefaultValue = 50,
+    kDefinePropertyDefinition = 51,
     kPostPropertyUpdate = 53,
     kBeginTransientPropertyUpdate = 54,
     kContinueTransientPropertyUpdate = 55,
@@ -912,6 +917,7 @@ class RelayClientMessage final :
     kSetAudioOutputDeviceReqFieldNumber = 34,
     kSetVideoInputDeviceReqFieldNumber = 35,
     kDefinePropertyDefaultValueFieldNumber = 50,
+    kDefinePropertyDefinitionFieldNumber = 51,
     kPostPropertyUpdateFieldNumber = 53,
     kBeginTransientPropertyUpdateFieldNumber = 54,
     kContinueTransientPropertyUpdateFieldNumber = 55,
@@ -1491,6 +1497,24 @@ class RelayClientMessage final :
       ::ServerData::DefinePropertyDefaultValue* definepropertydefaultvalue);
   ::ServerData::DefinePropertyDefaultValue* unsafe_arena_release_definepropertydefaultvalue();
 
+  // .ServerData.DefinePropertyDefinition DefinePropertyDefinition = 51;
+  bool has_definepropertydefinition() const;
+  private:
+  bool _internal_has_definepropertydefinition() const;
+  public:
+  void clear_definepropertydefinition();
+  const ::ServerData::DefinePropertyDefinition& definepropertydefinition() const;
+  PROTOBUF_NODISCARD ::ServerData::DefinePropertyDefinition* release_definepropertydefinition();
+  ::ServerData::DefinePropertyDefinition* mutable_definepropertydefinition();
+  void set_allocated_definepropertydefinition(::ServerData::DefinePropertyDefinition* definepropertydefinition);
+  private:
+  const ::ServerData::DefinePropertyDefinition& _internal_definepropertydefinition() const;
+  ::ServerData::DefinePropertyDefinition* _internal_mutable_definepropertydefinition();
+  public:
+  void unsafe_arena_set_allocated_definepropertydefinition(
+      ::ServerData::DefinePropertyDefinition* definepropertydefinition);
+  ::ServerData::DefinePropertyDefinition* unsafe_arena_release_definepropertydefinition();
+
   // .ServerData.PostPropertyUpdate PostPropertyUpdate = 53;
   bool has_postpropertyupdate() const;
   private:
@@ -1887,6 +1911,7 @@ class RelayClientMessage final :
   void set_has_setaudiooutputdevicereq();
   void set_has_setvideoinputdevicereq();
   void set_has_definepropertydefaultvalue();
+  void set_has_definepropertydefinition();
   void set_has_postpropertyupdate();
   void set_has_begintransientpropertyupdate();
   void set_has_continuetransientpropertyupdate();
@@ -1949,6 +1974,7 @@ class RelayClientMessage final :
       ::ServerData::SetAudioOutputDeviceReq* setaudiooutputdevicereq_;
       ::ServerData::SetVideoInputDeviceReq* setvideoinputdevicereq_;
       ::ServerData::DefinePropertyDefaultValue* definepropertydefaultvalue_;
+      ::ServerData::DefinePropertyDefinition* definepropertydefinition_;
       ::ServerData::PostPropertyUpdate* postpropertyupdate_;
       ::ServerData::BeginTransientPropertyUpdate* begintransientpropertyupdate_;
       ::ServerData::ContinueTransientPropertyUpdate* continuetransientpropertyupdate_;
@@ -10173,6 +10199,232 @@ class DefinePropertyDefaultValue final :
 };
 // -------------------------------------------------------------------
 
+class DefinePropertyDefinition final :
+    public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:ServerData.DefinePropertyDefinition) */ {
+ public:
+  inline DefinePropertyDefinition() : DefinePropertyDefinition(nullptr) {}
+  ~DefinePropertyDefinition() override;
+  explicit PROTOBUF_CONSTEXPR DefinePropertyDefinition(::PROTOBUF_NAMESPACE_ID::internal::ConstantInitialized);
+
+  DefinePropertyDefinition(const DefinePropertyDefinition& from);
+  DefinePropertyDefinition(DefinePropertyDefinition&& from) noexcept
+    : DefinePropertyDefinition() {
+    *this = ::std::move(from);
+  }
+
+  inline DefinePropertyDefinition& operator=(const DefinePropertyDefinition& from) {
+    CopyFrom(from);
+    return *this;
+  }
+  inline DefinePropertyDefinition& operator=(DefinePropertyDefinition&& from) noexcept {
+    if (this == &from) return *this;
+    if (GetOwningArena() == from.GetOwningArena()
+  #ifdef PROTOBUF_FORCE_COPY_IN_MOVE
+        && GetOwningArena() != nullptr
+  #endif  // !PROTOBUF_FORCE_COPY_IN_MOVE
+    ) {
+      InternalSwap(&from);
+    } else {
+      CopyFrom(from);
+    }
+    return *this;
+  }
+
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* descriptor() {
+    return GetDescriptor();
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Descriptor* GetDescriptor() {
+    return default_instance().GetMetadata().descriptor;
+  }
+  static const ::PROTOBUF_NAMESPACE_ID::Reflection* GetReflection() {
+    return default_instance().GetMetadata().reflection;
+  }
+  static const DefinePropertyDefinition& default_instance() {
+    return *internal_default_instance();
+  }
+  static inline const DefinePropertyDefinition* internal_default_instance() {
+    return reinterpret_cast<const DefinePropertyDefinition*>(
+               &_DefinePropertyDefinition_default_instance_);
+  }
+  static constexpr int kIndexInFileMessages =
+    42;
+
+  friend void swap(DefinePropertyDefinition& a, DefinePropertyDefinition& b) {
+    a.Swap(&b);
+  }
+  inline void Swap(DefinePropertyDefinition* other) {
+    if (other == this) return;
+  #ifdef PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() != nullptr &&
+        GetOwningArena() == other->GetOwningArena()) {
+   #else  // PROTOBUF_FORCE_COPY_IN_SWAP
+    if (GetOwningArena() == other->GetOwningArena()) {
+  #endif  // !PROTOBUF_FORCE_COPY_IN_SWAP
+      InternalSwap(other);
+    } else {
+      ::PROTOBUF_NAMESPACE_ID::internal::GenericSwap(this, other);
+    }
+  }
+  void UnsafeArenaSwap(DefinePropertyDefinition* other) {
+    if (other == this) return;
+    GOOGLE_DCHECK(GetOwningArena() == other->GetOwningArena());
+    InternalSwap(other);
+  }
+
+  // implements Message ----------------------------------------------
+
+  DefinePropertyDefinition* New(::PROTOBUF_NAMESPACE_ID::Arena* arena = nullptr) const final {
+    return CreateMaybeMessage<DefinePropertyDefinition>(arena);
+  }
+  using ::PROTOBUF_NAMESPACE_ID::Message::CopyFrom;
+  void CopyFrom(const DefinePropertyDefinition& from);
+  using ::PROTOBUF_NAMESPACE_ID::Message::MergeFrom;
+  void MergeFrom( const DefinePropertyDefinition& from) {
+    DefinePropertyDefinition::MergeImpl(*this, from);
+  }
+  private:
+  static void MergeImpl(::PROTOBUF_NAMESPACE_ID::Message& to_msg, const ::PROTOBUF_NAMESPACE_ID::Message& from_msg);
+  public:
+  PROTOBUF_ATTRIBUTE_REINITIALIZES void Clear() final;
+  bool IsInitialized() const final;
+
+  size_t ByteSizeLong() const final;
+  const char* _InternalParse(const char* ptr, ::PROTOBUF_NAMESPACE_ID::internal::ParseContext* ctx) final;
+  uint8_t* _InternalSerialize(
+      uint8_t* target, ::PROTOBUF_NAMESPACE_ID::io::EpsCopyOutputStream* stream) const final;
+  int GetCachedSize() const final { return _impl_._cached_size_.Get(); }
+
+  private:
+  void SharedCtor(::PROTOBUF_NAMESPACE_ID::Arena* arena, bool is_message_owned);
+  void SharedDtor();
+  void SetCachedSize(int size) const final;
+  void InternalSwap(DefinePropertyDefinition* other);
+
+  private:
+  friend class ::PROTOBUF_NAMESPACE_ID::internal::AnyMetadata;
+  static ::PROTOBUF_NAMESPACE_ID::StringPiece FullMessageName() {
+    return "ServerData.DefinePropertyDefinition";
+  }
+  protected:
+  explicit DefinePropertyDefinition(::PROTOBUF_NAMESPACE_ID::Arena* arena,
+                       bool is_message_owned = false);
+  public:
+
+  static const ClassData _class_data_;
+  const ::PROTOBUF_NAMESPACE_ID::Message::ClassData*GetClassData() const final;
+
+  ::PROTOBUF_NAMESPACE_ID::Metadata GetMetadata() const final;
+
+  // nested types ----------------------------------------------------
+
+  // accessors -------------------------------------------------------
+
+  enum : int {
+    kPropertyIdFieldNumber = 2,
+    kSpaceConnFieldNumber = 1,
+    kDeclFieldNumber = 10,
+    kApplyToJournalFieldNumber = 11,
+    kApplyToJournalTransientFieldNumber = 12,
+    kApplyLocallyOnlyFieldNumber = 13,
+  };
+  // string PropertyId = 2;
+  void clear_propertyid();
+  const std::string& propertyid() const;
+  template <typename ArgT0 = const std::string&, typename... ArgT>
+  void set_propertyid(ArgT0&& arg0, ArgT... args);
+  std::string* mutable_propertyid();
+  PROTOBUF_NODISCARD std::string* release_propertyid();
+  void set_allocated_propertyid(std::string* propertyid);
+  private:
+  const std::string& _internal_propertyid() const;
+  inline PROTOBUF_ALWAYS_INLINE void _internal_set_propertyid(const std::string& value);
+  std::string* _internal_mutable_propertyid();
+  public:
+
+  // .ServerData.CavrnusSpaceConnection SpaceConn = 1;
+  bool has_spaceconn() const;
+  private:
+  bool _internal_has_spaceconn() const;
+  public:
+  void clear_spaceconn();
+  const ::ServerData::CavrnusSpaceConnection& spaceconn() const;
+  PROTOBUF_NODISCARD ::ServerData::CavrnusSpaceConnection* release_spaceconn();
+  ::ServerData::CavrnusSpaceConnection* mutable_spaceconn();
+  void set_allocated_spaceconn(::ServerData::CavrnusSpaceConnection* spaceconn);
+  private:
+  const ::ServerData::CavrnusSpaceConnection& _internal_spaceconn() const;
+  ::ServerData::CavrnusSpaceConnection* _internal_mutable_spaceconn();
+  public:
+  void unsafe_arena_set_allocated_spaceconn(
+      ::ServerData::CavrnusSpaceConnection* spaceconn);
+  ::ServerData::CavrnusSpaceConnection* unsafe_arena_release_spaceconn();
+
+  // .Property.AnyPropertyDeclaration decl = 10;
+  bool has_decl() const;
+  private:
+  bool _internal_has_decl() const;
+  public:
+  void clear_decl();
+  const ::Property::AnyPropertyDeclaration& decl() const;
+  PROTOBUF_NODISCARD ::Property::AnyPropertyDeclaration* release_decl();
+  ::Property::AnyPropertyDeclaration* mutable_decl();
+  void set_allocated_decl(::Property::AnyPropertyDeclaration* decl);
+  private:
+  const ::Property::AnyPropertyDeclaration& _internal_decl() const;
+  ::Property::AnyPropertyDeclaration* _internal_mutable_decl();
+  public:
+  void unsafe_arena_set_allocated_decl(
+      ::Property::AnyPropertyDeclaration* decl);
+  ::Property::AnyPropertyDeclaration* unsafe_arena_release_decl();
+
+  // bool applyToJournal = 11;
+  void clear_applytojournal();
+  bool applytojournal() const;
+  void set_applytojournal(bool value);
+  private:
+  bool _internal_applytojournal() const;
+  void _internal_set_applytojournal(bool value);
+  public:
+
+  // bool applyToJournalTransient = 12;
+  void clear_applytojournaltransient();
+  bool applytojournaltransient() const;
+  void set_applytojournaltransient(bool value);
+  private:
+  bool _internal_applytojournaltransient() const;
+  void _internal_set_applytojournaltransient(bool value);
+  public:
+
+  // bool applyLocallyOnly = 13;
+  void clear_applylocallyonly();
+  bool applylocallyonly() const;
+  void set_applylocallyonly(bool value);
+  private:
+  bool _internal_applylocallyonly() const;
+  void _internal_set_applylocallyonly(bool value);
+  public:
+
+  // @@protoc_insertion_point(class_scope:ServerData.DefinePropertyDefinition)
+ private:
+  class _Internal;
+
+  template <typename T> friend class ::PROTOBUF_NAMESPACE_ID::Arena::InternalHelper;
+  typedef void InternalArenaConstructable_;
+  typedef void DestructorSkippable_;
+  struct Impl_ {
+    ::PROTOBUF_NAMESPACE_ID::internal::ArenaStringPtr propertyid_;
+    ::ServerData::CavrnusSpaceConnection* spaceconn_;
+    ::Property::AnyPropertyDeclaration* decl_;
+    bool applytojournal_;
+    bool applytojournaltransient_;
+    bool applylocallyonly_;
+    mutable ::PROTOBUF_NAMESPACE_ID::internal::CachedSize _cached_size_;
+  };
+  union { Impl_ _impl_; };
+  friend struct ::TableStruct_relay_2eproto;
+};
+// -------------------------------------------------------------------
+
 class PostPropertyUpdate final :
     public ::PROTOBUF_NAMESPACE_ID::Message /* @@protoc_insertion_point(class_definition:ServerData.PostPropertyUpdate) */ {
  public:
@@ -10221,7 +10473,7 @@ class PostPropertyUpdate final :
                &_PostPropertyUpdate_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    42;
+    43;
 
   friend void swap(PostPropertyUpdate& a, PostPropertyUpdate& b) {
     a.Swap(&b);
@@ -10436,7 +10688,7 @@ class BeginTransientPropertyUpdate final :
                &_BeginTransientPropertyUpdate_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    43;
+    44;
 
   friend void swap(BeginTransientPropertyUpdate& a, BeginTransientPropertyUpdate& b) {
     a.Swap(&b);
@@ -10667,7 +10919,7 @@ class ContinueTransientPropertyUpdate final :
                &_ContinueTransientPropertyUpdate_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    44;
+    45;
 
   friend void swap(ContinueTransientPropertyUpdate& a, ContinueTransientPropertyUpdate& b) {
     a.Swap(&b);
@@ -10898,7 +11150,7 @@ class FinalizeTransientPropertyUpdate final :
                &_FinalizeTransientPropertyUpdate_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    45;
+    46;
 
   friend void swap(FinalizeTransientPropertyUpdate& a, FinalizeTransientPropertyUpdate& b) {
     a.Swap(&b);
@@ -11129,7 +11381,7 @@ class CancelTransientPropertyUpdate final :
                &_CancelTransientPropertyUpdate_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    46;
+    47;
 
   friend void swap(CancelTransientPropertyUpdate& a, CancelTransientPropertyUpdate& b) {
     a.Swap(&b);
@@ -11302,7 +11554,7 @@ class TransformPropertyValue final :
                &_TransformPropertyValue_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    47;
+    48;
 
   friend void swap(TransformPropertyValue& a, TransformPropertyValue& b) {
     a.Swap(&b);
@@ -11499,7 +11751,7 @@ class GetAudioInputDevicesReq final :
                &_GetAudioInputDevicesReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    48;
+    49;
 
   friend void swap(GetAudioInputDevicesReq& a, GetAudioInputDevicesReq& b) {
     a.Swap(&b);
@@ -11647,7 +11899,7 @@ class GetAudioOutputDevicesReq final :
                &_GetAudioOutputDevicesReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    49;
+    50;
 
   friend void swap(GetAudioOutputDevicesReq& a, GetAudioOutputDevicesReq& b) {
     a.Swap(&b);
@@ -11795,7 +12047,7 @@ class GetVideoInputDevicesReq final :
                &_GetVideoInputDevicesReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    50;
+    51;
 
   friend void swap(GetVideoInputDevicesReq& a, GetVideoInputDevicesReq& b) {
     a.Swap(&b);
@@ -11943,7 +12195,7 @@ class GetAudioInputDevicesResp final :
                &_GetAudioInputDevicesResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    51;
+    52;
 
   friend void swap(GetAudioInputDevicesResp& a, GetAudioInputDevicesResp& b) {
     a.Swap(&b);
@@ -12111,7 +12363,7 @@ class GetAudioOutputDevicesResp final :
                &_GetAudioOutputDevicesResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    52;
+    53;
 
   friend void swap(GetAudioOutputDevicesResp& a, GetAudioOutputDevicesResp& b) {
     a.Swap(&b);
@@ -12279,7 +12531,7 @@ class GetVideoInputDevicesResp final :
                &_GetVideoInputDevicesResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    53;
+    54;
 
   friend void swap(GetVideoInputDevicesResp& a, GetVideoInputDevicesResp& b) {
     a.Swap(&b);
@@ -12447,7 +12699,7 @@ class SetAudioInputDeviceReq final :
                &_SetAudioInputDeviceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    54;
+    55;
 
   friend void swap(SetAudioInputDeviceReq& a, SetAudioInputDeviceReq& b) {
     a.Swap(&b);
@@ -12615,7 +12867,7 @@ class SetAudioOutputDeviceReq final :
                &_SetAudioOutputDeviceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    55;
+    56;
 
   friend void swap(SetAudioOutputDeviceReq& a, SetAudioOutputDeviceReq& b) {
     a.Swap(&b);
@@ -12783,7 +13035,7 @@ class SetVideoInputDeviceReq final :
                &_SetVideoInputDeviceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    56;
+    57;
 
   friend void swap(SetVideoInputDeviceReq& a, SetVideoInputDeviceReq& b) {
     a.Swap(&b);
@@ -12951,7 +13203,7 @@ class PostCreateObject final :
                &_PostCreateObject_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    57;
+    58;
 
   friend void swap(PostCreateObject& a, PostCreateObject& b) {
     a.Swap(&b);
@@ -13151,7 +13403,7 @@ class PostRemoveObject final :
                &_PostRemoveObject_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    58;
+    59;
 
   friend void swap(PostRemoveObject& a, PostRemoveObject& b) {
     a.Swap(&b);
@@ -13335,7 +13587,7 @@ class FetchFileByIdReq final :
                &_FetchFileByIdReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    59;
+    60;
 
   friend void swap(FetchFileByIdReq& a, FetchFileByIdReq& b) {
     a.Swap(&b);
@@ -13488,7 +13740,7 @@ class FetchFileByIdProgressResp final :
                &_FetchFileByIdProgressResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    60;
+    61;
 
   friend void swap(FetchFileByIdProgressResp& a, FetchFileByIdProgressResp& b) {
     a.Swap(&b);
@@ -13668,7 +13920,7 @@ class FetchFileByIdCompletedResp final :
                &_FetchFileByIdCompletedResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    61;
+    62;
 
   friend void swap(FetchFileByIdCompletedResp& a, FetchFileByIdCompletedResp& b) {
     a.Swap(&b);
@@ -13853,7 +14105,7 @@ class FetchFileByIdFailureResp final :
                &_FetchFileByIdFailureResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    62;
+    63;
 
   friend void swap(FetchFileByIdFailureResp& a, FetchFileByIdFailureResp& b) {
     a.Swap(&b);
@@ -14022,7 +14274,7 @@ class FetchAllUploadedContentReq final :
                &_FetchAllUploadedContentReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    63;
+    64;
 
   friend void swap(FetchAllUploadedContentReq& a, FetchAllUploadedContentReq& b) {
     a.Swap(&b);
@@ -14170,7 +14422,7 @@ class UploadLocalFileResp final :
                &_UploadLocalFileResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    64;
+    65;
 
   friend void swap(UploadLocalFileResp& a, UploadLocalFileResp& b) {
     a.Swap(&b);
@@ -14338,7 +14590,7 @@ class UploadLocalFileProgressResp final :
                &_UploadLocalFileProgressResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    65;
+    66;
 
   friend void swap(UploadLocalFileProgressResp& a, UploadLocalFileProgressResp& b) {
     a.Swap(&b);
@@ -14513,7 +14765,7 @@ class UploadLocalFileReq final :
                &_UploadLocalFileReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    66;
+    67;
 
   friend void swap(UploadLocalFileReq& a, UploadLocalFileReq& b) {
     a.Swap(&b);
@@ -14729,7 +14981,7 @@ class ContentDestinationFolderReq final :
                &_ContentDestinationFolderReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    67;
+    68;
 
   friend void swap(ContentDestinationFolderReq& a, ContentDestinationFolderReq& b) {
     a.Swap(&b);
@@ -14893,7 +15145,7 @@ class ContentDestinationFolderResp final :
                &_ContentDestinationFolderResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    68;
+    69;
 
   friend void swap(ContentDestinationFolderResp& a, ContentDestinationFolderResp& b) {
     a.Swap(&b);
@@ -15057,7 +15309,7 @@ class FetchRemoteContentInfoReq final :
                &_FetchRemoteContentInfoReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    69;
+    70;
 
   friend void swap(FetchRemoteContentInfoReq& a, FetchRemoteContentInfoReq& b) {
     a.Swap(&b);
@@ -15221,7 +15473,7 @@ class FetchRemoteContentInfoResp final :
                &_FetchRemoteContentInfoResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    70;
+    71;
 
   friend void swap(FetchRemoteContentInfoResp& a, FetchRemoteContentInfoResp& b) {
     a.Swap(&b);
@@ -15389,7 +15641,7 @@ class RemoteContentAdded final :
                &_RemoteContentAdded_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    71;
+    72;
 
   friend void swap(RemoteContentAdded& a, RemoteContentAdded& b) {
     a.Swap(&b);
@@ -15546,7 +15798,7 @@ class RemoteContentRemoved final :
                &_RemoteContentRemoved_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    72;
+    73;
 
   friend void swap(RemoteContentRemoved& a, RemoteContentRemoved& b) {
     a.Swap(&b);
@@ -15699,7 +15951,7 @@ class FetchAllUploadedContentResp final :
                &_FetchAllUploadedContentResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    73;
+    74;
 
   friend void swap(FetchAllUploadedContentResp& a, FetchAllUploadedContentResp& b) {
     a.Swap(&b);
@@ -15867,7 +16119,7 @@ class PropMetadataStatus final :
                &_PropMetadataStatus_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    74;
+    75;
 
   friend void swap(PropMetadataStatus& a, PropMetadataStatus& b) {
     a.Swap(&b);
@@ -16055,7 +16307,7 @@ class PropertyValueStatus final :
                &_PropertyValueStatus_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    75;
+    76;
 
   friend void swap(PropertyValueStatus& a, PropertyValueStatus& b) {
     a.Swap(&b);
@@ -16263,7 +16515,7 @@ class LocalPropertyHandledResp final :
                &_LocalPropertyHandledResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    76;
+    77;
 
   friend void swap(LocalPropertyHandledResp& a, LocalPropertyHandledResp& b) {
     a.Swap(&b);
@@ -16451,7 +16703,7 @@ class UserAdded final :
                &_UserAdded_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    77;
+    78;
 
   friend void swap(UserAdded& a, UserAdded& b) {
     a.Swap(&b);
@@ -16628,7 +16880,7 @@ class UserRemoved final :
                &_UserRemoved_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    78;
+    79;
 
   friend void swap(UserRemoved& a, UserRemoved& b) {
     a.Swap(&b);
@@ -16801,7 +17053,7 @@ class UserVideoFrame final :
                &_UserVideoFrame_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    79;
+    80;
 
   friend void swap(UserVideoFrame& a, UserVideoFrame& b) {
     a.Swap(&b);
@@ -17012,7 +17264,7 @@ class ObjectAdded final :
                &_ObjectAdded_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    80;
+    81;
 
   friend void swap(ObjectAdded& a, ObjectAdded& b) {
     a.Swap(&b);
@@ -17221,7 +17473,7 @@ class ObjectRemoved final :
                &_ObjectRemoved_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    81;
+    82;
 
   friend void swap(ObjectRemoved& a, ObjectRemoved& b) {
     a.Swap(&b);
@@ -17394,7 +17646,7 @@ class UpdateLocalUserMuted final :
                &_UpdateLocalUserMuted_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    82;
+    83;
 
   friend void swap(UpdateLocalUserMuted& a, UpdateLocalUserMuted& b) {
     a.Swap(&b);
@@ -17562,7 +17814,7 @@ class UpdateLocalUserCoPresence final :
                &_UpdateLocalUserCoPresence_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    83;
+    84;
 
   friend void swap(UpdateLocalUserCoPresence& a, UpdateLocalUserCoPresence& b) {
     a.Swap(&b);
@@ -17739,7 +17991,7 @@ class UpdateLocalUserStreamState final :
                &_UpdateLocalUserStreamState_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    84;
+    85;
 
   friend void swap(UpdateLocalUserStreamState& a, UpdateLocalUserStreamState& b) {
     a.Swap(&b);
@@ -17907,7 +18159,7 @@ class PermissionStatusReq final :
                &_PermissionStatusReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    85;
+    86;
 
   friend void swap(PermissionStatusReq& a, PermissionStatusReq& b) {
     a.Swap(&b);
@@ -18081,7 +18333,7 @@ class PermissionStatus final :
                &_PermissionStatus_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    86;
+    87;
 
   friend void swap(PermissionStatus& a, PermissionStatus& b) {
     a.Swap(&b);
@@ -18266,7 +18518,7 @@ class AllJoinableSpacesReq final :
                &_AllJoinableSpacesReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    87;
+    88;
 
   friend void swap(AllJoinableSpacesReq& a, AllJoinableSpacesReq& b) {
     a.Swap(&b);
@@ -18414,7 +18666,7 @@ class AllJoinableSpacesResp final :
                &_AllJoinableSpacesResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    88;
+    89;
 
   friend void swap(AllJoinableSpacesResp& a, AllJoinableSpacesResp& b) {
     a.Swap(&b);
@@ -18582,7 +18834,7 @@ class GetSpaceInfoReq final :
                &_GetSpaceInfoReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    89;
+    90;
 
   friend void swap(GetSpaceInfoReq& a, GetSpaceInfoReq& b) {
     a.Swap(&b);
@@ -18746,7 +18998,7 @@ class GetSpaceInfoResp final :
                &_GetSpaceInfoResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    90;
+    91;
 
   friend void swap(GetSpaceInfoResp& a, GetSpaceInfoResp& b) {
     a.Swap(&b);
@@ -18914,7 +19166,7 @@ class DeleteSpaceReq final :
                &_DeleteSpaceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    91;
+    92;
 
   friend void swap(DeleteSpaceReq& a, DeleteSpaceReq& b) {
     a.Swap(&b);
@@ -19078,7 +19330,7 @@ class GenericResp final :
                &_GenericResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    92;
+    93;
 
   friend void swap(GenericResp& a, GenericResp& b) {
     a.Swap(&b);
@@ -19253,7 +19505,7 @@ class RenameSpaceReq final :
                &_RenameSpaceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    93;
+    94;
 
   friend void swap(RenameSpaceReq& a, RenameSpaceReq& b) {
     a.Swap(&b);
@@ -19433,7 +19685,7 @@ class UpdateThumbnailForSpaceReq final :
                &_UpdateThumbnailForSpaceReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    94;
+    95;
 
   friend void swap(UpdateThumbnailForSpaceReq& a, UpdateThumbnailForSpaceReq& b) {
     a.Swap(&b);
@@ -19613,7 +19865,7 @@ class ChatAdded final :
                &_ChatAdded_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    95;
+    96;
 
   friend void swap(ChatAdded& a, ChatAdded& b) {
     a.Swap(&b);
@@ -19806,7 +20058,7 @@ class ChatUpdated final :
                &_ChatUpdated_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    96;
+    97;
 
   friend void swap(ChatUpdated& a, ChatUpdated& b) {
     a.Swap(&b);
@@ -19999,7 +20251,7 @@ class ChatRemoved final :
                &_ChatRemoved_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    97;
+    98;
 
   friend void swap(ChatRemoved& a, ChatRemoved& b) {
     a.Swap(&b);
@@ -20172,7 +20424,7 @@ class PostChat final :
                &_PostChat_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    98;
+    99;
 
   friend void swap(PostChat& a, PostChat& b) {
     a.Swap(&b);
@@ -20345,7 +20597,7 @@ class ChatBase final :
                &_ChatBase_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    99;
+    100;
 
   friend void swap(ChatBase& a, ChatBase& b) {
     a.Swap(&b);
@@ -20624,7 +20876,7 @@ class QueryAiReq final :
                &_QueryAiReq_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    100;
+    101;
 
   friend void swap(QueryAiReq& a, QueryAiReq& b) {
     a.Swap(&b);
@@ -20824,7 +21076,7 @@ class QueryAiResp final :
                &_QueryAiResp_default_instance_);
   }
   static constexpr int kIndexInFileMessages =
-    101;
+    102;
 
   friend void swap(QueryAiResp& a, QueryAiResp& b) {
     a.Swap(&b);
@@ -23284,6 +23536,80 @@ inline ::ServerData::DefinePropertyDefaultValue* RelayClientMessage::_internal_m
 inline ::ServerData::DefinePropertyDefaultValue* RelayClientMessage::mutable_definepropertydefaultvalue() {
   ::ServerData::DefinePropertyDefaultValue* _msg = _internal_mutable_definepropertydefaultvalue();
   // @@protoc_insertion_point(field_mutable:ServerData.RelayClientMessage.DefinePropertyDefaultValue)
+  return _msg;
+}
+
+// .ServerData.DefinePropertyDefinition DefinePropertyDefinition = 51;
+inline bool RelayClientMessage::_internal_has_definepropertydefinition() const {
+  return Msg_case() == kDefinePropertyDefinition;
+}
+inline bool RelayClientMessage::has_definepropertydefinition() const {
+  return _internal_has_definepropertydefinition();
+}
+inline void RelayClientMessage::set_has_definepropertydefinition() {
+  _impl_._oneof_case_[0] = kDefinePropertyDefinition;
+}
+inline void RelayClientMessage::clear_definepropertydefinition() {
+  if (_internal_has_definepropertydefinition()) {
+    if (GetArenaForAllocation() == nullptr) {
+      delete _impl_.Msg_.definepropertydefinition_;
+    }
+    clear_has_Msg();
+  }
+}
+inline ::ServerData::DefinePropertyDefinition* RelayClientMessage::release_definepropertydefinition() {
+  // @@protoc_insertion_point(field_release:ServerData.RelayClientMessage.DefinePropertyDefinition)
+  if (_internal_has_definepropertydefinition()) {
+    clear_has_Msg();
+    ::ServerData::DefinePropertyDefinition* temp = _impl_.Msg_.definepropertydefinition_;
+    if (GetArenaForAllocation() != nullptr) {
+      temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+    }
+    _impl_.Msg_.definepropertydefinition_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline const ::ServerData::DefinePropertyDefinition& RelayClientMessage::_internal_definepropertydefinition() const {
+  return _internal_has_definepropertydefinition()
+      ? *_impl_.Msg_.definepropertydefinition_
+      : reinterpret_cast< ::ServerData::DefinePropertyDefinition&>(::ServerData::_DefinePropertyDefinition_default_instance_);
+}
+inline const ::ServerData::DefinePropertyDefinition& RelayClientMessage::definepropertydefinition() const {
+  // @@protoc_insertion_point(field_get:ServerData.RelayClientMessage.DefinePropertyDefinition)
+  return _internal_definepropertydefinition();
+}
+inline ::ServerData::DefinePropertyDefinition* RelayClientMessage::unsafe_arena_release_definepropertydefinition() {
+  // @@protoc_insertion_point(field_unsafe_arena_release:ServerData.RelayClientMessage.DefinePropertyDefinition)
+  if (_internal_has_definepropertydefinition()) {
+    clear_has_Msg();
+    ::ServerData::DefinePropertyDefinition* temp = _impl_.Msg_.definepropertydefinition_;
+    _impl_.Msg_.definepropertydefinition_ = nullptr;
+    return temp;
+  } else {
+    return nullptr;
+  }
+}
+inline void RelayClientMessage::unsafe_arena_set_allocated_definepropertydefinition(::ServerData::DefinePropertyDefinition* definepropertydefinition) {
+  clear_Msg();
+  if (definepropertydefinition) {
+    set_has_definepropertydefinition();
+    _impl_.Msg_.definepropertydefinition_ = definepropertydefinition;
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:ServerData.RelayClientMessage.DefinePropertyDefinition)
+}
+inline ::ServerData::DefinePropertyDefinition* RelayClientMessage::_internal_mutable_definepropertydefinition() {
+  if (!_internal_has_definepropertydefinition()) {
+    clear_Msg();
+    set_has_definepropertydefinition();
+    _impl_.Msg_.definepropertydefinition_ = CreateMaybeMessage< ::ServerData::DefinePropertyDefinition >(GetArenaForAllocation());
+  }
+  return _impl_.Msg_.definepropertydefinition_;
+}
+inline ::ServerData::DefinePropertyDefinition* RelayClientMessage::mutable_definepropertydefinition() {
+  ::ServerData::DefinePropertyDefinition* _msg = _internal_mutable_definepropertydefinition();
+  // @@protoc_insertion_point(field_mutable:ServerData.RelayClientMessage.DefinePropertyDefinition)
   return _msg;
 }
 
@@ -33022,6 +33348,290 @@ inline void DefinePropertyDefaultValue::set_allocated_propertyvalue(::ServerData
 
 // -------------------------------------------------------------------
 
+// DefinePropertyDefinition
+
+// .ServerData.CavrnusSpaceConnection SpaceConn = 1;
+inline bool DefinePropertyDefinition::_internal_has_spaceconn() const {
+  return this != internal_default_instance() && _impl_.spaceconn_ != nullptr;
+}
+inline bool DefinePropertyDefinition::has_spaceconn() const {
+  return _internal_has_spaceconn();
+}
+inline const ::ServerData::CavrnusSpaceConnection& DefinePropertyDefinition::_internal_spaceconn() const {
+  const ::ServerData::CavrnusSpaceConnection* p = _impl_.spaceconn_;
+  return p != nullptr ? *p : reinterpret_cast<const ::ServerData::CavrnusSpaceConnection&>(
+      ::ServerData::_CavrnusSpaceConnection_default_instance_);
+}
+inline const ::ServerData::CavrnusSpaceConnection& DefinePropertyDefinition::spaceconn() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.SpaceConn)
+  return _internal_spaceconn();
+}
+inline void DefinePropertyDefinition::unsafe_arena_set_allocated_spaceconn(
+    ::ServerData::CavrnusSpaceConnection* spaceconn) {
+  if (GetArenaForAllocation() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.spaceconn_);
+  }
+  _impl_.spaceconn_ = spaceconn;
+  if (spaceconn) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:ServerData.DefinePropertyDefinition.SpaceConn)
+}
+inline ::ServerData::CavrnusSpaceConnection* DefinePropertyDefinition::release_spaceconn() {
+  
+  ::ServerData::CavrnusSpaceConnection* temp = _impl_.spaceconn_;
+  _impl_.spaceconn_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old =  reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(temp);
+  temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  if (GetArenaForAllocation() == nullptr) { delete old; }
+#else  // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArenaForAllocation() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return temp;
+}
+inline ::ServerData::CavrnusSpaceConnection* DefinePropertyDefinition::unsafe_arena_release_spaceconn() {
+  // @@protoc_insertion_point(field_release:ServerData.DefinePropertyDefinition.SpaceConn)
+  
+  ::ServerData::CavrnusSpaceConnection* temp = _impl_.spaceconn_;
+  _impl_.spaceconn_ = nullptr;
+  return temp;
+}
+inline ::ServerData::CavrnusSpaceConnection* DefinePropertyDefinition::_internal_mutable_spaceconn() {
+  
+  if (_impl_.spaceconn_ == nullptr) {
+    auto* p = CreateMaybeMessage<::ServerData::CavrnusSpaceConnection>(GetArenaForAllocation());
+    _impl_.spaceconn_ = p;
+  }
+  return _impl_.spaceconn_;
+}
+inline ::ServerData::CavrnusSpaceConnection* DefinePropertyDefinition::mutable_spaceconn() {
+  ::ServerData::CavrnusSpaceConnection* _msg = _internal_mutable_spaceconn();
+  // @@protoc_insertion_point(field_mutable:ServerData.DefinePropertyDefinition.SpaceConn)
+  return _msg;
+}
+inline void DefinePropertyDefinition::set_allocated_spaceconn(::ServerData::CavrnusSpaceConnection* spaceconn) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.spaceconn_);
+  }
+  if (spaceconn) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(spaceconn));
+    if (message_arena != submessage_arena) {
+      spaceconn = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, spaceconn, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  _impl_.spaceconn_ = spaceconn;
+  // @@protoc_insertion_point(field_set_allocated:ServerData.DefinePropertyDefinition.SpaceConn)
+}
+
+// string PropertyId = 2;
+inline void DefinePropertyDefinition::clear_propertyid() {
+  _impl_.propertyid_.ClearToEmpty();
+}
+inline const std::string& DefinePropertyDefinition::propertyid() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.PropertyId)
+  return _internal_propertyid();
+}
+template <typename ArgT0, typename... ArgT>
+inline PROTOBUF_ALWAYS_INLINE
+void DefinePropertyDefinition::set_propertyid(ArgT0&& arg0, ArgT... args) {
+ 
+ _impl_.propertyid_.Set(static_cast<ArgT0 &&>(arg0), args..., GetArenaForAllocation());
+  // @@protoc_insertion_point(field_set:ServerData.DefinePropertyDefinition.PropertyId)
+}
+inline std::string* DefinePropertyDefinition::mutable_propertyid() {
+  std::string* _s = _internal_mutable_propertyid();
+  // @@protoc_insertion_point(field_mutable:ServerData.DefinePropertyDefinition.PropertyId)
+  return _s;
+}
+inline const std::string& DefinePropertyDefinition::_internal_propertyid() const {
+  return _impl_.propertyid_.Get();
+}
+inline void DefinePropertyDefinition::_internal_set_propertyid(const std::string& value) {
+  
+  _impl_.propertyid_.Set(value, GetArenaForAllocation());
+}
+inline std::string* DefinePropertyDefinition::_internal_mutable_propertyid() {
+  
+  return _impl_.propertyid_.Mutable(GetArenaForAllocation());
+}
+inline std::string* DefinePropertyDefinition::release_propertyid() {
+  // @@protoc_insertion_point(field_release:ServerData.DefinePropertyDefinition.PropertyId)
+  return _impl_.propertyid_.Release();
+}
+inline void DefinePropertyDefinition::set_allocated_propertyid(std::string* propertyid) {
+  if (propertyid != nullptr) {
+    
+  } else {
+    
+  }
+  _impl_.propertyid_.SetAllocated(propertyid, GetArenaForAllocation());
+#ifdef PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  if (_impl_.propertyid_.IsDefault()) {
+    _impl_.propertyid_.Set("", GetArenaForAllocation());
+  }
+#endif // PROTOBUF_FORCE_COPY_DEFAULT_STRING
+  // @@protoc_insertion_point(field_set_allocated:ServerData.DefinePropertyDefinition.PropertyId)
+}
+
+// .Property.AnyPropertyDeclaration decl = 10;
+inline bool DefinePropertyDefinition::_internal_has_decl() const {
+  return this != internal_default_instance() && _impl_.decl_ != nullptr;
+}
+inline bool DefinePropertyDefinition::has_decl() const {
+  return _internal_has_decl();
+}
+inline const ::Property::AnyPropertyDeclaration& DefinePropertyDefinition::_internal_decl() const {
+  const ::Property::AnyPropertyDeclaration* p = _impl_.decl_;
+  return p != nullptr ? *p : reinterpret_cast<const ::Property::AnyPropertyDeclaration&>(
+      ::Property::_AnyPropertyDeclaration_default_instance_);
+}
+inline const ::Property::AnyPropertyDeclaration& DefinePropertyDefinition::decl() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.decl)
+  return _internal_decl();
+}
+inline void DefinePropertyDefinition::unsafe_arena_set_allocated_decl(
+    ::Property::AnyPropertyDeclaration* decl) {
+  if (GetArenaForAllocation() == nullptr) {
+    delete reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.decl_);
+  }
+  _impl_.decl_ = decl;
+  if (decl) {
+    
+  } else {
+    
+  }
+  // @@protoc_insertion_point(field_unsafe_arena_set_allocated:ServerData.DefinePropertyDefinition.decl)
+}
+inline ::Property::AnyPropertyDeclaration* DefinePropertyDefinition::release_decl() {
+  
+  ::Property::AnyPropertyDeclaration* temp = _impl_.decl_;
+  _impl_.decl_ = nullptr;
+#ifdef PROTOBUF_FORCE_COPY_IN_RELEASE
+  auto* old =  reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(temp);
+  temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  if (GetArenaForAllocation() == nullptr) { delete old; }
+#else  // PROTOBUF_FORCE_COPY_IN_RELEASE
+  if (GetArenaForAllocation() != nullptr) {
+    temp = ::PROTOBUF_NAMESPACE_ID::internal::DuplicateIfNonNull(temp);
+  }
+#endif  // !PROTOBUF_FORCE_COPY_IN_RELEASE
+  return temp;
+}
+inline ::Property::AnyPropertyDeclaration* DefinePropertyDefinition::unsafe_arena_release_decl() {
+  // @@protoc_insertion_point(field_release:ServerData.DefinePropertyDefinition.decl)
+  
+  ::Property::AnyPropertyDeclaration* temp = _impl_.decl_;
+  _impl_.decl_ = nullptr;
+  return temp;
+}
+inline ::Property::AnyPropertyDeclaration* DefinePropertyDefinition::_internal_mutable_decl() {
+  
+  if (_impl_.decl_ == nullptr) {
+    auto* p = CreateMaybeMessage<::Property::AnyPropertyDeclaration>(GetArenaForAllocation());
+    _impl_.decl_ = p;
+  }
+  return _impl_.decl_;
+}
+inline ::Property::AnyPropertyDeclaration* DefinePropertyDefinition::mutable_decl() {
+  ::Property::AnyPropertyDeclaration* _msg = _internal_mutable_decl();
+  // @@protoc_insertion_point(field_mutable:ServerData.DefinePropertyDefinition.decl)
+  return _msg;
+}
+inline void DefinePropertyDefinition::set_allocated_decl(::Property::AnyPropertyDeclaration* decl) {
+  ::PROTOBUF_NAMESPACE_ID::Arena* message_arena = GetArenaForAllocation();
+  if (message_arena == nullptr) {
+    delete reinterpret_cast< ::PROTOBUF_NAMESPACE_ID::MessageLite*>(_impl_.decl_);
+  }
+  if (decl) {
+    ::PROTOBUF_NAMESPACE_ID::Arena* submessage_arena =
+        ::PROTOBUF_NAMESPACE_ID::Arena::InternalGetOwningArena(
+                reinterpret_cast<::PROTOBUF_NAMESPACE_ID::MessageLite*>(decl));
+    if (message_arena != submessage_arena) {
+      decl = ::PROTOBUF_NAMESPACE_ID::internal::GetOwnedMessage(
+          message_arena, decl, submessage_arena);
+    }
+    
+  } else {
+    
+  }
+  _impl_.decl_ = decl;
+  // @@protoc_insertion_point(field_set_allocated:ServerData.DefinePropertyDefinition.decl)
+}
+
+// bool applyToJournal = 11;
+inline void DefinePropertyDefinition::clear_applytojournal() {
+  _impl_.applytojournal_ = false;
+}
+inline bool DefinePropertyDefinition::_internal_applytojournal() const {
+  return _impl_.applytojournal_;
+}
+inline bool DefinePropertyDefinition::applytojournal() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.applyToJournal)
+  return _internal_applytojournal();
+}
+inline void DefinePropertyDefinition::_internal_set_applytojournal(bool value) {
+  
+  _impl_.applytojournal_ = value;
+}
+inline void DefinePropertyDefinition::set_applytojournal(bool value) {
+  _internal_set_applytojournal(value);
+  // @@protoc_insertion_point(field_set:ServerData.DefinePropertyDefinition.applyToJournal)
+}
+
+// bool applyToJournalTransient = 12;
+inline void DefinePropertyDefinition::clear_applytojournaltransient() {
+  _impl_.applytojournaltransient_ = false;
+}
+inline bool DefinePropertyDefinition::_internal_applytojournaltransient() const {
+  return _impl_.applytojournaltransient_;
+}
+inline bool DefinePropertyDefinition::applytojournaltransient() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.applyToJournalTransient)
+  return _internal_applytojournaltransient();
+}
+inline void DefinePropertyDefinition::_internal_set_applytojournaltransient(bool value) {
+  
+  _impl_.applytojournaltransient_ = value;
+}
+inline void DefinePropertyDefinition::set_applytojournaltransient(bool value) {
+  _internal_set_applytojournaltransient(value);
+  // @@protoc_insertion_point(field_set:ServerData.DefinePropertyDefinition.applyToJournalTransient)
+}
+
+// bool applyLocallyOnly = 13;
+inline void DefinePropertyDefinition::clear_applylocallyonly() {
+  _impl_.applylocallyonly_ = false;
+}
+inline bool DefinePropertyDefinition::_internal_applylocallyonly() const {
+  return _impl_.applylocallyonly_;
+}
+inline bool DefinePropertyDefinition::applylocallyonly() const {
+  // @@protoc_insertion_point(field_get:ServerData.DefinePropertyDefinition.applyLocallyOnly)
+  return _internal_applylocallyonly();
+}
+inline void DefinePropertyDefinition::_internal_set_applylocallyonly(bool value) {
+  
+  _impl_.applylocallyonly_ = value;
+}
+inline void DefinePropertyDefinition::set_applylocallyonly(bool value) {
+  _internal_set_applylocallyonly(value);
+  // @@protoc_insertion_point(field_set:ServerData.DefinePropertyDefinition.applyLocallyOnly)
+}
+
+// -------------------------------------------------------------------
+
 // PostPropertyUpdate
 
 // .ServerData.CavrnusSpaceConnection SpaceConn = 1;
@@ -41511,6 +42121,8 @@ inline void QueryAiResp::set_allocated_resptext(std::string* resptext) {
 #ifdef __GNUC__
   #pragma GCC diagnostic pop
 #endif  // __GNUC__
+// -------------------------------------------------------------------
+
 // -------------------------------------------------------------------
 
 // -------------------------------------------------------------------

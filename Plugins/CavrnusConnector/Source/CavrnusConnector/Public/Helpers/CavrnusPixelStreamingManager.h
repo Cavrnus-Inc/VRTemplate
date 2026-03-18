@@ -8,7 +8,7 @@
 #include "CoreMinimal.h"
 #include "Managers/CavrnusService.h"
 #include "Components/EditableTextBox.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 
 #if WITH_PIXELSTREAMING
 #include "PixelStreamingDelegates.h"   // Correct include for UPixelStreamingDelegates
@@ -26,14 +26,13 @@ class CAVRNUSCONNECTOR_API UCavrnusPixelStreamingManager : public UCavrnusServic
 
 public:
     virtual void Initialize() override;
-    virtual void Deinitialize() override;
-    virtual void Teardown() override;
+    virtual void Dispose() override;
 
     UFUNCTION(BlueprintPure, Category = "Cavrnus|PixelStreaming", meta = (DisplayName = "Get Pixel Streaming Manager"))
     static UCavrnusPixelStreamingManager* GetPixelStreamingManager()
     {
 #if WITH_PIXELSTREAMING
-        return UCavrnusSubsystem::Get()->Services->Get<UCavrnusPixelStreamingManager>();
+        return UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusPixelStreamingManager>();
 #else
         return nullptr;
 #endif

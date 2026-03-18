@@ -1,77 +1,90 @@
 // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "CavrnusConnectorEditorModule.h"
+#include "CavrnusConnector/Public/CavrnusLog.h"
 
 #include "ToolMenus.h"
 #include "Engine/World.h"
 #include "Logging/LogMacros.h"
 #include "Utilities/CavrnusEditorHelpers.h"
-#include "Utilities/CavrnusAssetActionsRegistry.h"
-#include "Utilities/CavrnusGenericAssetActions.h"
+#include "Utilities/CavrnusContentBrowserExtender.h"
+#include "PropertyEditorModule.h"
+#include "Managers/SpawnedObjects/SpawnedObjectsManager.h"
+#include "Utilities/SActorOptimizationEditorPanel.h"
+#include "LevelEditor.h"
+#include "Widgets/Docking/SDockTab.h"
+#include "Settings/ProjectPackagingSettings.h"
 
 #define LOCTEXT_NAMESPACE "CavrnusConnectorEditor"
 
 IMPLEMENT_MODULE(FCavrnusConnectorEditorModule, CavrnusConnectorEditor)
 DEFINE_LOG_CATEGORY(LogCavrnusConnectorEditor);
 
+static const FName ActorOptimizationTabName("ActorOptimizationTab");
+
 FCavrnusConnectorEditorModule::FCavrnusConnectorEditorModule() {}
 FCavrnusConnectorEditorModule::~FCavrnusConnectorEditorModule() {}
-
-#if WITH_EDITOR
-TSharedPtr<IAssetTypeActions> FindOriginalActionsForClass(UClass* ClassType)
-{
-	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
-
-	// UE5.0: returns a single weak ptr (the highest-priority action for this class)
-	const TWeakPtr<IAssetTypeActions> Weak = AssetTools.GetAssetTypeActionsForClass(ClassType);
-	return Weak.Pin(); // may be null if none registered yet
-}
-#endif
 
 void FCavrnusConnectorEditorModule::StartupModule()
 {
 	IModuleInterface::StartupModule();
-	
+	UE_LOG(LogCavrnusConnector, Log, TEXT("CavrnusConnectorEditor module active."));
+
 	EditorUI = TStrongObjectPtr(NewObject<UCavrnusEditorUIManager>(GetTransientPackage()));
 	EditorUI->Initialize();
-	
-	// Set up for the Cavrnus menu editor content menus
-	IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
 
-	// List of classes you want to override
-	TArray<UClass*> TargetClasses = {
-		UStaticMesh::StaticClass(),
-		UBlueprint::StaticClass(),
-		UMaterial::StaticClass(),
-		// ... add more here
-	};
+    RegisterTabs();
 
-#if WITH_EDITOR
-	FCoreDelegates::OnPostEngineInit.AddLambda([]()
+	FCavrnusContentBrowserExtender::Register();
+
+	// Ensure Cavrnus DataAssets are included in cooked builds (in-memory only, no SaveConfig)
+	if (UProjectPackagingSettings* PackagingSettings = GetMutableDefault<UProjectPackagingSettings>())
+	{
+		const FDirectoryPath CavrnusDataAssetsDir { TEXT("/Game/Cavrnus/DataAssets") };
+		const bool bAlreadyPresent = PackagingSettings->DirectoriesToAlwaysCook.ContainsByPredicate(
+			[&](const FDirectoryPath& Dir) { return Dir.Path == CavrnusDataAssetsDir.Path; });
+		if (!bAlreadyPresent)
 		{
-			FCavrnusAssetActionsRegistry::RegisterOverrides();
-		});
-#endif
+			PackagingSettings->DirectoriesToAlwaysCook.Add(CavrnusDataAssetsDir);
+		}
+	}
 }
 
 void FCavrnusConnectorEditorModule::ShutdownModule()
 {
-	// Cleanup from the Asset Editor Remapping
-#if WITH_EDITOR
-	// Only try to unregister if AssetTools is still around
-	FCavrnusAssetActionsRegistry::UnregisterOverrides();
-	RegisteredOverrides.Empty();
-#endif
+	FCavrnusContentBrowserExtender::Unregister();
+
+    UnregisterTabs();
 
 	if (EditorUI.IsValid())		EditorUI->Teardown();
 	if (EditorTools.IsValid())	EditorTools->Teardown();
 
-	// Drop strong references; GC can collect afterward.
 	EditorUI.Reset();
 	EditorTools.Reset();
 
 	IModuleInterface::ShutdownModule();
-
 }
 
+void FCavrnusConnectorEditorModule::RegisterTabs()
+{
+	FGlobalTabmanager::Get()->RegisterNomadTabSpawner(
+		ActorOptimizationTabName,
+		FOnSpawnTab::CreateRaw(this, &FCavrnusConnectorEditorModule::SpawnActorOptimizationTab))
+		.SetDisplayName(FText::FromString(TEXT("Actor Optimization")))
+		.SetMenuType(ETabSpawnerMenuType::Enabled);
+}
+
+void FCavrnusConnectorEditorModule::UnregisterTabs()
+{
+    FGlobalTabmanager::Get()->UnregisterNomadTabSpawner(ActorOptimizationTabName);
+}
+
+TSharedRef<SDockTab> FCavrnusConnectorEditorModule::SpawnActorOptimizationTab(const FSpawnTabArgs& Args)
+{
+    return SNew(SDockTab)
+        .TabRole(ETabRole::NomadTab)
+        [
+            SNew(SActorOptimizationEditorPanel)
+        ];
+}
 #undef LOCTEXT_NAMESPACE

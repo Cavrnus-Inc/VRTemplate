@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Object.h"
+#include "Tickable.h"
 #include "CavrnusTickableObject.generated.h"
 
 /**

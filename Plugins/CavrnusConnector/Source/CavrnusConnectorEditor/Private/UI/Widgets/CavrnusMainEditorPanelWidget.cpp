@@ -2,7 +2,8 @@
 
 #include "UI/Widgets/CavrnusMainEditorPanelWidget.h"
 
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusEditorContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "RestAPI/CavrnusRestHelpers.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 
@@ -60,7 +61,7 @@ void UCavrnusMainEditorPanelWidget::NativeConstruct()
 			HeaderContainer->AddChildToVerticalBox(TabViewWidget);
 	}
 	
-	ConnStateHandle = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->BindConnectedState([this](const ECavrnusEditorConnectedStateEnum& State)
+	ConnStateHandle = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>()->BindConnectedState([this](const ECavrnusEditorConnectedStateEnum& State)
 	{
 		switch (State)
 		{
@@ -80,7 +81,7 @@ void UCavrnusMainEditorPanelWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
 
-	if (const auto Cm = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>())
+	if (const auto Cm = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>())
 	{
 		Cm->OnConnStateChanged.Remove(ConnStateHandle);
 		ConnStateHandle.Reset();

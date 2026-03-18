@@ -16,6 +16,8 @@ struct FTransformSyncTarget
 {
 	GENERATED_BODY()
 
+	FTransformSyncTarget()
+		: TargetComponent(nullptr) {};
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Cavrnus")
 	FString PropertyName;
 

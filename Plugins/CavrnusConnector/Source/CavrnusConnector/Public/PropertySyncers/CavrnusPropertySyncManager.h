@@ -15,11 +15,11 @@ class CAVRNUSCONNECTOR_API UCavrnusPropertySyncManager : public UCavrnusService
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize() override { Super::Initialize(); }
+	virtual void Initialize() override;
 	void Register(const FGuid& Id, UCavrnusPropertySyncer* PropertySync);
 	void Unregister(const FGuid& Id);
 
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 private:
 	UPROPERTY()
 	TMap<FGuid, UCavrnusPropertySyncer*> Tracked;

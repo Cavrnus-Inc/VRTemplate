@@ -7,11 +7,12 @@
 #include "CavrnusEnumHelpers.h"
 #include "CavrnusFunctionLibrary.h"
 #include "CavrnusKeyValueStore.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "RelayModel/CavrnusRelayModel.h"
 
 FString UCavrnusEditorAuthenticationManager::EditorAuthMethod = "Cavrnus_EditorAuthMethod";
 FString UCavrnusEditorAuthenticationManager::RuntimeToken = "Cavrnus_RuntimeToken";
+FString UCavrnusEditorAuthenticationManager::RuntimeServer = "Cavrnus_RuntimeServer";
 FString UCavrnusEditorAuthenticationManager::ServerKey = "Cavrnus_EditorServerKey";
 FString UCavrnusEditorAuthenticationManager::ApiEditorKey = "Cavrnus_ApiEditorKey";
 FString UCavrnusEditorAuthenticationManager::ApiEditorToken = "Cavrnus_ApiEditorToken";
@@ -22,17 +23,6 @@ void UCavrnusEditorAuthenticationManager::Initialize()
 	// Wiping data on each restart. Force user to sign in each time.
 	ClearEditorAuthData();
 	UpdateConnectedState(Disconnected);
-}
-
-void UCavrnusEditorAuthenticationManager::Deinitialize()
-{
-	Super::Deinitialize();
-	// Wiping data on each restart. Force user to sign in each time.
-	Teardown();
-}
-
-void UCavrnusEditorAuthenticationManager::Teardown()
-{
 }
 
 ECavrnusAuthMethodForPIE UCavrnusEditorAuthenticationManager::GetCurrentAuthMethod()
@@ -72,6 +62,16 @@ void UCavrnusEditorAuthenticationManager::SetRuntimeToken(const FString& InToken
 FString UCavrnusEditorAuthenticationManager::GetRuntimeToken()
 {
 	return FCavrnusKeyValueStore::GetStoredStringValue(RuntimeToken);
+}
+
+void UCavrnusEditorAuthenticationManager::SetRuntimeServer(const FString& InServer)
+{
+	FCavrnusKeyValueStore::SetStoredStringValue(RuntimeServer, InServer);
+}
+
+FString UCavrnusEditorAuthenticationManager::GetRuntimeServer()
+{
+	return FCavrnusKeyValueStore::GetStoredStringValue(RuntimeServer);
 }
 
 FString UCavrnusEditorAuthenticationManager::GetPIEAuthedServer()
@@ -124,6 +124,18 @@ void UCavrnusEditorAuthenticationManager::DoConnect()
 		});
 }
 
+void UCavrnusEditorAuthenticationManager::DoDisconnect()
+{
+	// Deauthenticate handles exiting spaces and killing relay
+	UCavrnusFunctionLibrary::Deauthenticate();
+
+	ClearEditorAuthData();
+	HasAuthenticated = false;
+	UpdateConnectedState(Disconnected);
+
+	UE_LOG(LogCavrnusConnector, Log, TEXT("[EditorAuthManager] DoDisconnect -- deauthenticated, cleared auth data, state set to Disconnected"));
+}
+
 bool UCavrnusEditorAuthenticationManager::TryGetEditorLoginInfo(FCavrnusEditorLoginInfo& OutInfo)
 {
 	if (FCavrnusKeyValueStore::KeyEntryExists(ApiEditorKey))
@@ -155,7 +167,7 @@ void UCavrnusEditorAuthenticationManager::StoreAuthData(const FCavrnusAuthentica
 {
 #if WITH_EDITOR
 	FCavrnusKeyValueStore::SetStoredStringValue(ServerKey, Auth.Server);
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->ServerDomain = Auth.Server;
+	UCavrnusConnectorSettings::Get()->ServerDomain = Auth.Server;
 
 	// Default to join as editor!
 	if (!FCavrnusKeyValueStore::KeyEntryExists(EditorAuthMethod))
@@ -189,4 +201,6 @@ void UCavrnusEditorAuthenticationManager::ClearEditorAuthData()
 	FCavrnusKeyValueStore::DeleteKey(ApiEditorKey);
 	FCavrnusKeyValueStore::DeleteKey(ApiEditorToken);
 	FCavrnusKeyValueStore::DeleteKey(EditorAuthMethod);
+	FCavrnusKeyValueStore::DeleteKey(RuntimeToken);
+	FCavrnusKeyValueStore::DeleteKey(RuntimeServer);
 }

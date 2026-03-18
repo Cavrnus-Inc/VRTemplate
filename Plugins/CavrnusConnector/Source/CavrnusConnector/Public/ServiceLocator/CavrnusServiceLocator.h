@@ -3,27 +3,41 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Disposable.h"
 #include "Managers/CavrnusService.h"
 #include "UObject/Object.h"
 #include "CavrnusServiceLocator.generated.h"
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusServiceLocator : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusServiceLocator : public UObject, public IDisposable
 {
 	GENERATED_BODY()
 private:
 	UPROPERTY()
-	TMap<FName,UObject*> services;
+	TMap<FName, UCavrnusService*> services;
 	
 public:
+	virtual void Dispose() override
+	{
+		for (auto service : services)
+		{
+			if (IsValid(service.Value))
+				service.Value->Dispose();
+		}
+
+		services.Empty();
+	}
+	
 	template<typename T>
-	void RegisterService()
+	void RegisterService(UWorld* World = nullptr)
 	{
 		if (Contains<T>())
 			return;
 		
-		auto* service = CreateService<T>();
-		services.Add(GetKey<T>(),service);
+		T* service = CreateService<T>(World);
+		services.Add(GetKey<T>(), service);
+
+		service->Initialize();
 		
 		UE_LOG(LogTemp, Verbose, TEXT("Service registered: %s"), *GetKey<T>().ToString());
 	}
@@ -44,21 +58,10 @@ public:
 	template<typename T>
 	T* Get()
 	{
-		if (UObject** Found = services.Find(GetKey<T>()))
+		if (UCavrnusService** Found = services.Find(GetKey<T>()))
 			return Cast<T>(*Found);
 
 		return nullptr;
-	}
-
-	void Teardown()
-	{
-		for (TPair<FName, TWeakObjectPtr<UObject>> Service : services)
-		{
-			if (auto* Found = Cast<UCavrnusService>(Service.Value))
-				Found->Teardown();
-		}
-
-		services.Empty();
 	}
 
 private:
@@ -69,15 +72,18 @@ private:
 	}
 
 	template<typename T>
-	T* CreateService()
+	T* CreateService(UWorld* World)
 	{
-		auto* service = NewObject<T>(this);
-		if constexpr (TIsDerivedFrom<T, UCavrnusService>::Value)
-		{
-			UE_LOG(LogTemp, Log, TEXT("T is derived from UCavrnusService"));
-			service->Initialize();
-		}
+		if (!World)
+			World = GetWorld();
+
+		T* Service;
 		
-		return service;
+		if (World)
+			Service = NewObject<T>(World);
+		else
+			Service = NewObject<T>(this);
+
+		return Service;
 	}
 };

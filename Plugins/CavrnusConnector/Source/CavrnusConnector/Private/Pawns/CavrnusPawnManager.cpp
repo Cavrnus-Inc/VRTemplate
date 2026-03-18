@@ -1,7 +1,7 @@
 // Copyright (c) 2025 Cavrnus. All rights reserved.
 #include "Pawns/CavrnusPawnManager.h"
 #include "CavrnusConnectorModule.h"
-#include "CavrnusSubsystem.h"
+#include "CavrnusConnectorSettings.h"
 #include "Engine/Engine.h"
 #include "Pawns/SpawnManagement/CavrnusRemotePawnSpawner.h"
 #include "Engine/GameViewportClient.h"
@@ -11,7 +11,7 @@ void UCavrnusPawnManager::RegisterUser(const FCavrnusUser& User)
 {
 	if (User.IsLocalUser && !HasSetupLocalUser)
 	{
-		if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->bAutoSetupLocalPawn)
+		if (UCavrnusConnectorSettings::Get()->bAutoSetupLocalPawn)
 		{
 			LocalUser = User;
 		
@@ -27,11 +27,11 @@ void UCavrnusPawnManager::RegisterUser(const FCavrnusUser& User)
 	
 	} else
 	{
-		if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->bAutoSetupRemotePawns)
+		if (UCavrnusConnectorSettings::Get()->bAutoSetupRemotePawns)
 		{
 			auto* RemoteSpawner = NewObject<UCavrnusRemotePawnSpawner>(GEngine->GameViewport->GetWorld());
-			RemoteSpawner->Initialize(User);
 			PawnSpawners.Add(User.PropertiesContainerName, RemoteSpawner);
+			RemoteSpawner->Initialize(User);
 		}
 		else
 			UE_LOG(LogCavrnusConnector, Warning, TEXT("bAutoSetupRemotePawns is false! Enable bAutoSetupRemotePawns in Cavrnus Plugin Settings if you need auto remote pawn support!"));
@@ -63,31 +63,18 @@ void UCavrnusPawnManager::SwitchPawnRuntime(const FString& PawnId)
 
 void UCavrnusPawnManager::Clear()
 {
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusPawnManager::Clear"));
-
-	for (const auto Spawner : PawnSpawners)
+	for (const auto& Spawner : PawnSpawners)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Tearing Down Spawner"));
-		Spawner.Value->Teardown();
-		UE_LOG(LogTemp, Warning, TEXT("TORN DOWN"));
+		if (IsValid(Spawner.Value))
+			Spawner.Value->Teardown();
 	}
 	PawnSpawners.Empty();
+	HasSetupLocalUser = false;
 }
 
-void UCavrnusPawnManager::Teardown()
+void UCavrnusPawnManager::Dispose()
 {
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusPawnManager::Teardown"));
 	Clear();
 	HasSetupLocalUser = false;
-
-}
-
-void UCavrnusPawnManager::Deinitialize()
-{
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusPawnManager::DeinitializeManager"));
-	Teardown();
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusPawnManager::DeinitializeManager - Starting Super::DeinitializeManager"));
-	Super::Deinitialize();
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusPawnManager::DeinitializeManager - Finished Super::DeinitializeManager"));
 
 }

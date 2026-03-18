@@ -3,14 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CavrnusLog.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
-
-/**
- * @brief Declares a log category for the Cavrnus Connector module.
- * Used for logging messages related to the Cavrnus Spatial Connector plugin.
- */
-DECLARE_LOG_CATEGORY_EXTERN(LogCavrnusConnector, Log, All);
 
 /**
  * @class FCavrnusConnectorModule

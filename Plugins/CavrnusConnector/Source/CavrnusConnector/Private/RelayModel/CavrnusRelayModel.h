@@ -68,6 +68,12 @@ namespace Cavrnus
 		static void KillDataModel();
 
 		/**
+		 * @brief Returns whether the relay system is alive (created and not yet killed).
+		 * Use this to guard against singleton resurrection after shutdown.
+		 */
+		static bool IsAlive();
+
+		/**
 		 * @brief Determines if the object is tickable in the editor.
 		 *
 		 * @return true if tickable in the editor, false otherwise.
@@ -130,6 +136,7 @@ namespace Cavrnus
 
 	private:
 		static CavrnusRelayModel* Instance;
+		static bool bIsAlive;
 
 		/** Internal data members */
 		CavrnusInteropLayer* interopLayer;

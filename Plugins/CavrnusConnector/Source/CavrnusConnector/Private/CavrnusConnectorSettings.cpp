@@ -1,6 +1,7 @@
 // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "CavrnusConnectorSettings.h"
+#include "CavrnusLog.h"
 #include "Engine/Engine.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 
@@ -11,7 +12,7 @@ UCavrnusConnectorSettings::UCavrnusConnectorSettings(const FObjectInitializer& o
 	SaveUserAuthToken = false;
 	ServerDomain = "";
 
-	AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+	AuthMethod = ECavrnusAuthMethod::AllowBoth;
 	GuestLoginMethod = ECavrnusGuestLoginMethod::PromptToEnterName;
 	MemberLoginMethod = ECavrnusMemberLoginMethod::EnterMemberCredentials;
 	GuestName = "";
@@ -30,6 +31,7 @@ UCavrnusConnectorSettings::UCavrnusConnectorSettings(const FObjectInitializer& o
 	ServerSelectionMenu = nullptr;
 	GuestJoinMenu = nullptr;
 	MemberLoginMenu = nullptr;
+	CombinedLoginMenu = nullptr;
 	JoinIdMenu = nullptr;
 	SpacesListMenu = nullptr;
 	LoadingWidgetMenu = nullptr;
@@ -41,7 +43,6 @@ UCavrnusConnectorSettings::UCavrnusConnectorSettings(const FObjectInitializer& o
 void UCavrnusConnectorSettings::PostInitProperties()
 {
 	Super::PostInitProperties();
-	UE_LOG(LogTemp, Warning, TEXT("XXX Config name: %s"), *GetClass()->GetConfigName());
 
 	if (!ServerSelectionMenu)
 		ServerSelectionMenu = FCavrnusWidgetFactory::GetDefaultBlueprint(TEXT("/CavrnusConnector/UI/Menus/ServerMenu/WBP_ServerSelectionMenu.WBP_ServerSelectionMenu_C"), UUserWidget::StaticClass());
@@ -51,6 +52,9 @@ void UCavrnusConnectorSettings::PostInitProperties()
 
 	if (!MemberLoginMenu)
 		MemberLoginMenu = FCavrnusWidgetFactory::GetDefaultBlueprint(TEXT("/CavrnusConnector/UI/Menus/LoginMenus/WBP_MemberLogin.WBP_MemberLogin_C"), UUserWidget::StaticClass());
+
+	if (!CombinedLoginMenu)
+		CombinedLoginMenu = FCavrnusWidgetFactory::GetDefaultBlueprint(TEXT("/CavrnusConnector/UI/Menus/LoginMenus/WBP_CombinedLogin.WBP_CombinedLogin_C"), UUserWidget::StaticClass());
 
 	if (!JoinIdMenu)
 		JoinIdMenu = FCavrnusWidgetFactory::GetDefaultBlueprint(TEXT("/CavrnusConnector/UI/Menus/LoginMenus/WBP_JoinIdLogin.WBP_JoinIdLogin_C"), UUserWidget::StaticClass());
@@ -67,7 +71,7 @@ void UCavrnusConnectorSettings::PostInitProperties()
 	if (WidgetsToLoad.Num() == 0)
 		WidgetsToLoad.Add(FCavrnusWidgetFactory::GetDefaultBlueprint(TEXT("/CavrnusConnector/UI/Menus/MinimalUI/WBP_Cavrnus_MinimalUI.WBP_Cavrnus_MinimalUI_C"), UUserWidget::StaticClass()));
 
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusConnectorSettings initialized (Config name: %s)"), *GetClass()->GetConfigName());
+	UE_LOG(LogCavrnusConnector, Verbose, TEXT("UCavrnusConnectorSettings initialized"));
 }
 
 #if WITH_EDITOR

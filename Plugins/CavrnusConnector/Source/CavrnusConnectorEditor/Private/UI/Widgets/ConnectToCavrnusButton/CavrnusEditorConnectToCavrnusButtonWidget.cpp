@@ -1,24 +1,26 @@
 ﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "UI/Widgets/ConnectToCavrnusButton/CavrnusEditorConnectToCavrnusButtonWidget.h"
-#include "CavrnusSubsystem.h"
+
+#include "Core/Contexts/CavrnusEditorContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 
 void UCavrnusEditorConnectToCavrnusButtonWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
 
-	auto ConnManager = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>();
+	ConnManager = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
 	if (ConnManager == nullptr)
 		return;
 
 	if (Button == nullptr)
 		return;
-	
+
 	ConnStateChangedHandle = ConnManager->BindConnectedState([this](const ECavrnusEditorConnectedStateEnum& State)
 	{
 		HandleConnectionState(State);
 	});
-	
+
 	AuthStartedHandle = ConnManager->OnAuthStarted.AddWeakLambda(this,[this]
 	{
 		Button->SetEnabledState(false);
@@ -26,9 +28,12 @@ void UCavrnusEditorConnectToCavrnusButtonWidget::NativeConstruct()
 		SetSecondaryText("Sign into Cavrnus from your web browser", true);
 	});
 
-	ButtonClickedHandle = Button->OnButtonClicked.AddWeakLambda(this, [ConnManager]
+	ButtonClickedHandle = Button->OnButtonClicked.AddWeakLambda(this, [this]
 	{
-		ConnManager->DoConnect();
+		if (bIsConnected)
+			ConnManager->DoDisconnect();
+		else
+			ConnManager->DoConnect();
 	});
 }
 
@@ -36,7 +41,7 @@ void UCavrnusEditorConnectToCavrnusButtonWidget::NativeDestruct()
 {
 	Super::NativeDestruct();
 
-	if (const auto Sc = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>())
+	if (const auto Sc = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>())
 	{
 		Sc->OnAuthStarted.Remove(AuthStartedHandle);
 		Sc->OnConnStateChanged.Remove(ConnStateChangedHandle);
@@ -57,17 +62,20 @@ void UCavrnusEditorConnectToCavrnusButtonWidget::HandleConnectionState(const ECa
 	switch (CurrentState)
 	{
 	case Connected:
+		bIsConnected = true;
 		SetPrimaryText("", false);
 		SetSecondaryText("", false);
 		SetRichText("", false);
-		Button->SetEnabledState(false);
-		Button->SetVisibleState(false);
-		Button->SetButtonText(FText::FromString("Connected"));
-		ButtonContainer->SetVisibility(ESlateVisibility::Collapsed);
+		Button->SetEnabledState(true);
+		Button->SetVisibleState(true);
+		Button->SetButtonText(FText::FromString("Sign Out"));
+		ButtonContainer->SetVisibility(ESlateVisibility::SelfHitTestInvisible);
+		SetVisibility(ESlateVisibility::SelfHitTestInvisible);
 		Throbber->SetVisibility(ESlateVisibility::Collapsed);
 		ConnectionSuccessBox->SetVisibility(ESlateVisibility::Visible);
 		break;
 	case Connecting:
+		bIsConnected = false;
 		SetPrimaryText("Waiting for connection...", true);
 		Button->SetEnabledState(false);
 		Button->SetButtonText(FText::FromString("Connecting..."));
@@ -75,6 +83,7 @@ void UCavrnusEditorConnectToCavrnusButtonWidget::HandleConnectionState(const ECa
 		ConnectionSuccessBox->SetVisibility(ESlateVisibility::Collapsed);
 		break;
 	case Disconnected:
+		bIsConnected = false;
 		SetPrimaryText("", false);
 		SetSecondaryText("", false);
 		SetRichText("", false);

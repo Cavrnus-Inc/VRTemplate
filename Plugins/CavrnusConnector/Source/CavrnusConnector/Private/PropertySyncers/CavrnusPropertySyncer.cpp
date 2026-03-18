@@ -1,9 +1,12 @@
 ﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "PropertySyncers/CavrnusPropertySyncer.h"
+
+#include "Core/Subsystems/CavrnusSubsystem.h"
+
 #include "CavrnusConnectorModule.h"
 #include "CavrnusFunctionLibrary.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
 #include "Helpers/CavrnusMathHelpers.h"
 #include "UObject/UnrealType.h"  
 #include "PropertySyncers/CavrnusPropertyPoller.h"
@@ -61,10 +64,10 @@ void UCavrnusPropertySyncer::Initialize(
 			
 			BindingId = PropertyBinding->BindingId;
 		}
+
+		Id = FGuid::NewGuid();
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusPropertySyncManager>()->Register(Id, this);
 	});
-	
-	Id = FGuid::NewGuid();
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusPropertySyncManager>()->Register(Id, this);
 }
 
 void UCavrnusPropertySyncer::SetupPolling()
@@ -166,9 +169,11 @@ bool UCavrnusPropertySyncer::SetSyncedStructFromText(const FString& StructText)
 
 	bool bImported = false;
 
+	// TODO:: Mark, not sure why this all of a sudden broke, but 5.0 ImportText returns a TCHAR*
 #if (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION == 0)
 	// UE5.0: ImportText returns bool
-	bImported = StructProperty->ImportText(*StructText, KnownValuePtr, PPF_None, nullptr);
+	const TCHAR* Result = StructProperty->ImportText(*StructText, KnownValuePtr, PPF_None, nullptr);
+	bImported = Result != nullptr;
 #elif (ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 1)
 	// UE5.1–5.6+: ImportText_InContainer returns const TCHAR* (nullptr on failure).
 	const TCHAR* Result = StructProperty->ImportText_InContainer(*StructText, KnownValuePtr, nullptr, PPF_None);
@@ -437,7 +442,7 @@ bool UCavrnusPropertySyncer::TryGetPropertyType(FProperty* Prop, void* InContain
 }
 
 
-void UCavrnusPropertySyncer::Teardown()
+void UCavrnusPropertySyncer::Dispose()
 {
 	if (!BindingId.IsEmpty())
 		UCavrnusFunctionLibrary::UnbindWithId(BindingId);
@@ -446,6 +451,5 @@ void UCavrnusPropertySyncer::Teardown()
 	PropertyBinding = nullptr;
 
 	bHasTornDown = true;
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusPropertySyncManager>()->Unregister(Id);
 }
 

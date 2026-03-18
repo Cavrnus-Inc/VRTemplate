@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "Components/ProgressBar.h"
+#include "UI/Components/Text/CavrnusUITextBlock.h"
 #include "UI/Systems/Messages/CavrnusBaseUIMessageWidget.h"
+#include "UI/Systems/Messages/ToastMessages/Info/CavrnusInfoToastMessageEnum.h"
 #include "CavrnusBaseToastMessageWidget.generated.h"
 
 UCLASS(Abstract, BlueprintType, Blueprintable)
@@ -19,10 +21,25 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
 	void CloseWithDelay(const float Delay = 3.0f);
-	
+
+	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
+	UCavrnusBaseToastMessageWidget* SetPrimaryText(const FString& InPrimaryText);
+
+	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
+	UCavrnusBaseToastMessageWidget* SetSecondaryText(const FString& InSecondaryText);
+
+	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
+	virtual UCavrnusBaseToastMessageWidget* SetType(const ECavrnusInfoToastMessageEnum& InType) { return this; }
+
 protected:
 	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UProgressBar> ProgressBar = nullptr;
+
+	UPROPERTY(meta=(BindWidgetOptional))
+	TObjectPtr<UCavrnusUITextBlock> PrimaryText = nullptr;
+
+	UPROPERTY(meta=(BindWidgetOptional))
+	TObjectPtr<UCavrnusUITextBlock> SecondaryText = nullptr;
 
 	virtual void NativeConstruct() override;
 

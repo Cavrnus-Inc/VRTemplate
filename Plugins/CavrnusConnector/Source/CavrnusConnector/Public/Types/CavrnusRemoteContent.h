@@ -27,7 +27,7 @@ struct CAVRNUSCONNECTOR_API FCavrnusRemoteContent
 
 	/** The unique identifier for the remote content. */
 	UPROPERTY(BlueprintReadWrite, Category = "Cavrnus|Content")
-	FString Id = "";
+	FString ContentId = "";
 
 	/** The name of the remote content. */
 	UPROPERTY(BlueprintReadWrite, Category = "Cavrnus|Content")
@@ -68,7 +68,7 @@ struct CAVRNUSCONNECTOR_API FCavrnusRemoteContent
 	 */
 	FCavrnusRemoteContent(FString id, FString name, FString fileName, FString thumbnailUrl, long size, FString sizeStr, bool cachedOnDisk, TMap<FString, FString> tags) 
 	{
-		Id = id;
+		ContentId = id;
 		Name = name;
 		FileName = fileName;
 		ThumbnailUrl = thumbnailUrl;

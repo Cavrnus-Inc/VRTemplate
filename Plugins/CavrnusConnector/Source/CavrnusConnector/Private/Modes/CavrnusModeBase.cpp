@@ -1,41 +1,106 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "Modes/CavrnusModeBase.h"
 
-#include "CavrnusSubsystem.h"
+#include "CavrnusConnectorModule.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "EnhancedInputSubsystems.h"
 #include "AssetManager/CavrnusDataAssetManager.h"
 #include "AssetManager/DataAssets/CavrnusInputActionsDataAsset.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
 #include "Engine/LocalPlayer.h"
+#include "Runtime/Launch/Resources/Version.h"
 #include "GameFramework/PlayerController.h"
+
+void UCavrnusModeBase::HandleLocalPlayerAdded(UWorld* World, ULocalPlayer* LocalPlayer, int32 Priority)
+{
+	PlayerController = World->GetFirstPlayerController();
+	
+	if (PlayerController.IsValid())
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem =
+			ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
+		{
+			InputSubsystem = Subsystem;
+
+			UCavrnusSubsystem* SubsystemInstance = UCavrnusSubsystem::Get();
+			if (!SubsystemInstance || !SubsystemInstance->IsRuntimeContextReady())
+			{
+				UE_LOG(LogCavrnusConnector, Warning, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded - RuntimeContext not ready yet"));
+				return;
+			}
+
+			UCavrnusDataAssetManager* DataAssetManager = SubsystemInstance->RuntimeContext->Get<UCavrnusDataAssetManager>();
+			if (!DataAssetManager)
+			{
+				UE_LOG(LogCavrnusConnector, Warning, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded - DataAssetManager not available"));
+				return;
+			}
+
+			CavInputAsset = DataAssetManager->GetAsset<UCavrnusInputActionsDataAsset>();
+
+			if (!CavInputAsset)
+			{
+				UE_LOG(LogCavrnusConnector, Warning, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded No CavInputAsset found"));
+				return;
+			}
+
+			const FString ContextName = GetInputMappingContextName();
+			if (ContextName.IsEmpty())
+			{
+				// No input context requested — mode does not need input bindings
+				return;
+			}
+
+			if (auto* Ctx = CavInputAsset->GetContext(ContextName))
+			{
+				InputMapCtx = Ctx;
+				Subsystem->AddMappingContext(Ctx, Priority);
+
+				if (auto* Ic = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
+				{
+					UE_LOG(LogCavrnusConnector, Verbose, TEXT("Binding input actions"));
+					BindInputActions(Ic, CavInputAsset);
+				}
+				else
+				{
+					UE_LOG(LogCavrnusConnector, Error, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded failed to bind input actions"));
+				}
+			}
+			else
+			{
+				UE_LOG(LogCavrnusConnector, Error, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded No Context found for '%s'"), *ContextName);
+			}
+		}
+		else
+		{
+			UE_LOG(LogCavrnusConnector, Error, TEXT("UCavrnusModeBase::HandleLocalPlayerAdded No subsystem found"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Error,
+			TEXT("UCavrnusModeBase::EnterMode - PlayerController is not valid after OnLocalPlayerAddedEvent"))
+	}
+}
 
 void UCavrnusModeBase::EnterMode(UWorld* World, const int32 Priority)
 {
 	if (IsValid(World))
 	{
 		PlayerController = World->GetFirstPlayerController();
-		if (const ULocalPlayer* LocalPlayer = PlayerController->GetLocalPlayer())
+		if (PlayerController.IsValid())
 		{
-			if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(LocalPlayer))
-			{
-				InputSubsystem = Subsystem;
-				
-				CavInputAsset = UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusInputActionsDataAsset>();
-				if (CavInputAsset == nullptr)
-					return;
-				
-				if (auto* Ctx = CavInputAsset->GetContext(GetInputMappingContextName()))
-				{
-					InputMapCtx = Ctx;
-					Subsystem->AddMappingContext(Ctx, Priority);
-					
-					if (auto* Ic = Cast<UEnhancedInputComponent>(PlayerController->InputComponent))
-					{
-						BindInputActions(Ic, CavInputAsset);
-					}
-				}
-			}
+			HandleLocalPlayerAdded(World, PlayerController->GetLocalPlayer(), Priority);
 		}
+		else
+		{
+			UE_LOG(LogCavrnusConnector, Error, TEXT("CavrnusModeBase::EnterMode - PlayerController is not valid"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("UCavrnusModeBase::EnterMode - World is not valid"));
 	}
 }
 

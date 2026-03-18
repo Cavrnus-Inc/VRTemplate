@@ -20,11 +20,11 @@ struct FCavrnusDialogOptions : public FCavrnusBaseDisplayOptions
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusDialogSystem : public UObject, public ICavrnusBaseUISystem
+class CAVRNUSCONNECTOR_API UCavrnusDialogSystem : public UDisposableUObject, public ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) override;
+	void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer);
 
 	template <typename TMessageType>
 	TMessageType* Create(const FCavrnusDialogOptions& Options = FCavrnusDialogOptions())
@@ -34,7 +34,7 @@ public:
 	
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) override;
 	virtual void CloseAll() override;
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 
 private:
 	UPROPERTY()

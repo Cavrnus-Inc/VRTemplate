@@ -4,7 +4,9 @@
 
 #include "CoreMinimal.h"
 #include "CavrnusBaseScreenWidget.h"
+#include "Core/DisposableUObject.h"
 #include "UI/Systems/CavrnusBaseUISystem.h"
+#include "UI/Systems/CavrnusUIArbiter.h"
 #include "UObject/Object.h"
 #include "CavrnusScreenSystem.generated.h"
 
@@ -19,11 +21,11 @@ struct FCavrnusScreenOptions
 };
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusScreenSystem : public UObject, public ICavrnusBaseUISystem
+class CAVRNUSCONNECTOR_API UCavrnusScreenSystem : public UDisposableUObject, public ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) override;
+	void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer, UCavrnusUIArbiter* Arbiter);
 
 	template <typename TScreenType>
 	TScreenType* ShowScreen(const FCavrnusScreenOptions& Options = FCavrnusScreenOptions(), const FUIContextData& Data = FUIContextData())
@@ -33,9 +35,12 @@ public:
 
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) override;
 	virtual void CloseAll() override;
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 
 private:
+	UPROPERTY()
+	TWeakObjectPtr<UCavrnusUIArbiter> ArbiterSys;
+	
 	UPROPERTY()
 	TArray<UCavrnusBaseScreenWidget*> ScreenStack;
 

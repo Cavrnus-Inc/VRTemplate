@@ -3,8 +3,9 @@
 #include "Pawns/SpawnManagement/CavrnusRemotePawnSpawner.h"
 
 #include "CavrnusFunctionLibrary.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "AssetManager/CavrnusDataAssetManager.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
 #include "Kismet/GameplayStatics.h"
 #include "Pawns/CavrnusPawnFunctions.h"
 
@@ -15,13 +16,13 @@ void UCavrnusRemotePawnSpawner::Initialize(const FCavrnusUser& InUser)
 	UCavrnusFunctionLibrary::DefineStringPropertyDefaultValue(
 		InUser.SpaceConn,
 		InUser.PropertiesContainerName,
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(),
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnTypeId());
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(),
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnTypeId());
 	
 	BindingIds.Add(UCavrnusFunctionLibrary::BindStringPropertyValue(
 		InUser.SpaceConn,
 		InUser.PropertiesContainerName,
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(),
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(),
 		[this](const FString& PawnTypeId, const FString&, const FString&)
 		{
 			if (PawnTypeId.IsEmpty())
@@ -41,11 +42,11 @@ void UCavrnusRemotePawnSpawner::Teardown()
 
 void UCavrnusRemotePawnSpawner::HandlePawnSwitch(const FString& PawnTypeId)
 {
-	if (PawnTypeId == UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnTypeId())
-		SetupPawn(*UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnData());
+	if (PawnTypeId == UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnTypeId())
+		SetupPawn(*UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetDefaultPawnData());
 	else
 	{
-		if (const FCavrnusPawnTypeData* PawnDataPtr = UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->FindPawnById(PawnTypeId))
+		if (const FCavrnusPawnTypeData* PawnDataPtr = UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->FindPawnById(PawnTypeId))
 			SetupPawn(*PawnDataPtr);
 	}
 }
@@ -85,10 +86,17 @@ void UCavrnusRemotePawnSpawner::SetupPawn(const FCavrnusPawnTypeData& TargetPawn
 
 AActor* UCavrnusRemotePawnSpawner::Spawn(const TSubclassOf<AActor>& RemoteActor)
 {
-	const FTransform SpawnTransform = UCavrnusFunctionLibrary::GetTransformPropertyValue(User.SpaceConn, User.PropertiesContainerName, "Transform");
-	
-	AActor* SpawnedActor = GetWorld()->SpawnActorDeferred<AActor>(RemoteActor, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	UGameplayStatics::FinishSpawningActor(SpawnedActor, SpawnTransform);
-	
-	return SpawnedActor;
+    UWorld* World = GetWorld();
+    if (!World)
+    {
+        UE_LOG(LogTemp, Error, TEXT("CavrnusRemotePawnSpawner::Spawn - GetWorld() returned null!"));
+        return nullptr;
+    }
+    
+    const FTransform SpawnTransform = UCavrnusFunctionLibrary::GetTransformPropertyValue(User.SpaceConn, User.PropertiesContainerName, "Transform");
+    
+    AActor* SpawnedActor = World->SpawnActorDeferred<AActor>(RemoteActor, SpawnTransform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+    UGameplayStatics::FinishSpawningActor(SpawnedActor, SpawnTransform);
+    
+    return SpawnedActor;
 }

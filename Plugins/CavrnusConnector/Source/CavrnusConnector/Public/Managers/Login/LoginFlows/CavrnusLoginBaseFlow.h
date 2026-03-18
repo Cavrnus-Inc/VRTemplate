@@ -39,12 +39,16 @@ protected:
 #pragma region UI Spawning
 	void ShowMemberLoginWidget();
 	void ShowGuestLoginWidget();
+	void ShowCombinedLoginWidget();
 	void ShowJoinIdWidget();
 	void ShowServerSelectionWidget();
 	void ShowSpaceListWidget();
 	void ShowAuthenticationProgressWidget(bool bShowWidget);
 	void ShowLoadingProgressWidget(bool bShowWidget);
 
+	void CloseCurrentFlowWidget();
+
+	TWeakObjectPtr<UUserWidget> CurrentFlowWidget = nullptr;
 	TWeakObjectPtr<UUserWidget> AuthLoadingWidget = nullptr;
 	TWeakObjectPtr<UUserWidget> LoadingWidget = nullptr;
 	

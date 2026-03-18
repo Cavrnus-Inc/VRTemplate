@@ -37,10 +37,13 @@ public class CavrnusConnectorEditor : ModuleRules
             "LevelEditor",
             "Kismet",
             "KismetWidgets",
+            "MeshDescription",
             "StaticMeshEditor",
+            "StaticMeshDescription",
             "BlueprintGraph",
             "KismetCompiler",
-            "EditorScriptingUtilities"
+            "EditorScriptingUtilities",
+            "PropertyEditor"
         });
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         bUseRTTI = true;
@@ -75,11 +78,14 @@ public class CavrnusConnectorEditor : ModuleRules
             "ToolMenus",
             "SubobjectDataInterface",
             "CavrnusConnector",
+            "CavrnusApplication",
             "Blutility",
             "Projects",
             "Json",
             "JsonUtilities",
             "HTTP",
+            "ContentBrowser",
+            "DeveloperToolSettings",
                 }
         );
 

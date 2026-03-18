@@ -15,7 +15,7 @@ namespace Cavrnus
 	{
 	public:
 		CavrnusVirtualPropertyUpdate();
-		CavrnusVirtualPropertyUpdate(Cavrnus::CavrnusRelayModel* relayModel, FCavrnusSpaceConnection spaceConn, const FAbsolutePropertyId& propertyId, const FPropertyValue& propVal, const FPropertyPostOptions& options = FPropertyPostOptions());
+		CavrnusVirtualPropertyUpdate(FCavrnusSpaceConnection spaceConn, const FAbsolutePropertyId& propertyId, const FPropertyValue& propVal, const FPropertyPostOptions& options = FPropertyPostOptions());
 		~CavrnusVirtualPropertyUpdate();
 
 		void UpdateWithNewData(const FPropertyValue& propVal);
@@ -34,8 +34,6 @@ namespace Cavrnus
 		FString LiveUpdaterId;
 
 		FAbsolutePropertyId PropertyId;
-
-		Cavrnus::CavrnusRelayModel* RelayModel;
 
 		FPropertyPostOptions Options;
 	};

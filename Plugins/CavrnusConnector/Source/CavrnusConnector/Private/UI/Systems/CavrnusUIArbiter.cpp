@@ -5,20 +5,23 @@
 
 void UCavrnusUIArbiter::Initialize()
 {
-	CurrentUIVisMode.Set(EUIVisibilityMode::Normal);
+	CurrentUIVisMode = MakeShared<TSetting<EUIVisibilityMode>>(EUIVisibilityMode::Normal);
+	CurrentUIVisMode->Set(EUIVisibilityMode::Normal);
+	
+	AlsoDispose(CurrentUIVisMode);
 }
 
 void UCavrnusUIArbiter::SetVisibilityMode(const EUIVisibilityMode NewMode)
 {
-	if (CurrentUIVisMode.Get() == NewMode)
+	if (CurrentUIVisMode->Get() == NewMode)
 		return;
 	
-	CurrentUIVisMode.Set(NewMode);
+	CurrentUIVisMode->Set(NewMode);
 }
 
 bool UCavrnusUIArbiter::CanSpawnUIType(const EUIType Type)
 {
-	switch (CurrentUIVisMode.Get())
+	switch (CurrentUIVisMode->Get())
 	{
 	case EUIVisibilityMode::Normal:
 		return true;

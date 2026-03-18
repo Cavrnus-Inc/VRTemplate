@@ -12,6 +12,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Dom/JsonObject.h"
 
 #include "CavrnusUserAccount.generated.h"		// Always last
 
@@ -70,5 +71,21 @@ struct CAVRNUSCONNECTOR_API FCavrnusUserAccount
 	FCavrnusUserAccount(bool IsLocalUser, const FString& AccountId, const FString& UserEmail, const FString& UserProfilePic, const FString& UserFirstName, const FString& UserLastName, const FString& UserDisplayName)
 		: IsLocalUser(IsLocalUser), AccountId(AccountId), UserEmail(UserEmail), UserProfilePic(UserProfilePic), UserFirstName(UserFirstName), UserLastName(UserLastName), UserDisplayName(UserDisplayName)
 	{
+	}
+
+	/** Parse from REST API JSON (GET /users response item). */
+	static FCavrnusUserAccount FromJson(const TSharedPtr<FJsonObject>& Json)
+	{
+		FCavrnusUserAccount Result;
+		if (!Json.IsValid()) return Result;
+
+		Json->TryGetStringField(TEXT("_id"), Result.AccountId);
+		Json->TryGetStringField(TEXT("email"), Result.UserEmail);
+		Json->TryGetStringField(TEXT("pictureUrl"), Result.UserProfilePic);
+		Json->TryGetStringField(TEXT("firstName"), Result.UserFirstName);
+		Json->TryGetStringField(TEXT("lastName"), Result.UserLastName);
+		Json->TryGetStringField(TEXT("screenName"), Result.UserDisplayName);
+
+		return Result;
 	}
 };

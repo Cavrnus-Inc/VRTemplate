@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/DisposableUObject.h"
 #include "UObject/Object.h"
 #include "CavrnusService.generated.h"
 
@@ -10,13 +11,12 @@
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusService : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusService : public UDisposableUObject
 {
 	GENERATED_BODY()
 public:
 	virtual void Initialize();
-	virtual void Deinitialize();
-	virtual void Teardown();
+	virtual void Dispose() override;
 
 protected:
 	virtual void OnAppInit() {}

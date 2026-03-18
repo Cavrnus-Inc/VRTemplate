@@ -1,153 +1,168 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "Managers/Login/CavrnusLoginManager.h"
 #include "CavrnusConnectorModule.h"
 #include "CavrnusFunctionLibrary.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusEditorContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "Managers/CavrnusEditorAuthenticationManager.h"
 #include "Managers/Login/CavrnusLoginConfig.h"
-#include "Managers/Login/LoginFlows/CavrnusPIELoginFlow.h"
-#include "Managers/Login/LoginFlows/CavrnusRuntimeLoginFlow.h"
-#include "Managers/Login/LoginFlows/CavrnusPluginSettingsLoginFlow.h"
+#include "Managers/Login/LoginFlows/CavrnusUnifiedLoginFlow.h"
 #include "RelayModel/CavrnusRelayModel.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
+#include "Containers/Ticker.h"
+
+void UCavrnusLoginManager::Dispose()
+{
+	if (ViewportReadyTickerHandle.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(ViewportReadyTickerHandle);
+		ViewportReadyTickerHandle.Reset();
+	}
+	Super::Dispose();
+}
 
 void UCavrnusLoginManager::Initialize()
 {
 	Super::Initialize();
 }
 
-void UCavrnusLoginManager::DoLogin(const FString& InLoginFlowType, FCavrnusLoginConfig InConfig)
+void UCavrnusLoginManager::DoLogin(FCavrnusLoginConfig InConfig)
 {
-	if (HasAttemptedToLoginAlready)
+	if (bLoginInitiated)
 	{
-		UE_LOG(LogCavrnusConnector, Warning, TEXT("Multiple login attempts detected before authentication completed."
-											" Check Cavrnus Connector Plugin settings and set [ConnectOnStart] to false"))
-
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[LoginManager] Login already initiated -- blocking duplicate call."
+											" Check Cavrnus Connector Plugin settings and set [ConnectOnStart] to false if using Blueprint login."))
 		return;
 	}
-	
-	const auto LoginFlowType = InLoginFlowType.TrimStartAndEnd().ToLower();
 
-	if (LoginFlowType == TEXT("runtime"))
-		LoginFlow = NewObject<UCavrnusRuntimeLoginFlow>();
-	else if (LoginFlowType == TEXT("settings"))
-		LoginFlow = NewObject<UCavrnusPluginSettingsLoginFlow>();
-	else if (LoginFlowType == TEXT("pie"))
-		LoginFlow = NewObject<UCavrnusPIELoginFlow>();
-	else
-	{
-		UE_LOG(LogCavrnusConnector, Warning, TEXT("Unrecognized login flow: [%s] -- defaulting to DefaultLogin!"), *InLoginFlowType);
-		LoginFlow = NewObject<UCavrnusRuntimeLoginFlow>();
-	}
-	
+	LoginFlow = NewObject<UCavrnusUnifiedLoginFlow>();
+
 	ApplyCommandLineArgs(&InConfig);
+	InConfig.DeriveEnumsFromData();
+	InConfig.Validate();
+
 	UCavrnusFunctionLibrary::SetupCavrnusEventHooks();
 
 	ResolveServer(InConfig.Server);
-	UCavrnusUI::Get()->AwaitUIInit([this, InConfig]
-	{
-		LoginFlow->DoLogin(InConfig);
-	});
 
-	HasAttemptedToLoginAlready = true;
+	UE_LOG(LogCavrnusConnector, Log, TEXT("[LoginManager] DoLogin | Config: %s"), *InConfig.ToDebugString());
+
+	BindUIIsReadyWhenViewportReady(InConfig);
+}
+
+void UCavrnusLoginManager::BindUIIsReadyWhenViewportReady(FCavrnusLoginConfig InConfig)
+{
+	TWeakObjectPtr<UCavrnusLoginManager> WeakThis(this);
+	FCavrnusLoginConfig ConfigCopy = InConfig;
+
+	auto TryBind = [WeakThis, ConfigCopy]() -> bool
+	{
+		if (!WeakThis.IsValid())
+			return false;
+		if (UCavrnusUISystems* UI = UCavrnusUI::Get())
+		{
+			UI->UIIsReadySetting->Bind(WeakThis.Get(), [WeakThis, ConfigCopy](const bool& IsInit)
+			{
+				if (IsInit && WeakThis.IsValid() && WeakThis->LoginFlow)
+					WeakThis->LoginFlow->DoLogin(ConfigCopy);
+			});
+			WeakThis->bLoginInitiated = true;
+			return false;
+		}
+		return true;
+	};
+
+	if (!TryBind())
+		return;
+
+	ViewportReadyTickerHandle = FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateLambda([WeakThis, TryBind](float) -> bool
+		{
+			bool keepTicking = TryBind();
+			if (!keepTicking && WeakThis.IsValid() && WeakThis->ViewportReadyTickerHandle.IsValid())
+			{
+				FTSTicker::GetCoreTicker().RemoveTicker(WeakThis->ViewportReadyTickerHandle);
+				WeakThis->ViewportReadyTickerHandle.Reset();
+			}
+			return keepTicking;
+		}), 0.0f);
 }
 
 void UCavrnusLoginManager::DoPluginSettingsLogin()
 {
-	auto* Settings = UCavrnusSubsystem::Get()->GetSettings();
-
-	if (Settings == nullptr)
+	FCavrnusLoginConfig LoginConfig = FCavrnusLoginConfig::FromPluginSettings();
+	if (LoginConfig.Server.IsEmpty() && !UCavrnusConnectorSettings::Get())
 	{
 		UE_LOG(LogCavrnusConnector, Error, TEXT("[UCavrnusLoginManager::DoPluginSettingsLogin] Unable to login! CavrnusConnectorSettings is null!"));
 		return;
 	}
 
-	FCavrnusLoginConfig LoginConfig;
-	LoginConfig.bIsPieUserLogin = false;
-	LoginConfig.Server = Settings->ServerDomain;
-	
-	switch (Settings->AuthMethod)
-	{
-	case ECavrnusAuthMethod::JoinAsMember:
-		LoginConfig.AuthMethod = ECavrnusAuthMethod::JoinAsMember;
-		LoginConfig.MemberLoginEmail = Settings->MemberLoginEmail;
-		LoginConfig.MemberLoginPassword = Settings->MemberLoginPassword;
-		LoginConfig.MemberLoginMethod = Settings->MemberLoginMethod;
-		LoginConfig.SpaceJoinMethod = Settings->SpaceJoinMethod;
-		LoginConfig.SpaceJoinId = Settings->JoinId;
-		break;
-	case ECavrnusAuthMethod::JoinAsGuest:
-		LoginConfig.AuthMethod = ECavrnusAuthMethod::JoinAsGuest;
-		LoginConfig.GuestName = Settings->GuestName;
-		LoginConfig.GuestLoginMethod = Settings->GuestLoginMethod;
-		LoginConfig.SpaceJoinMethod = Settings->SpaceJoinMethod;
-		LoginConfig.SpaceJoinId = Settings->JoinId;
-		break;
-	}
-
-	DoLogin("settings", LoginConfig);
+	DoLogin(LoginConfig);
 }
 
 void UCavrnusLoginManager::DoPieLogin()
 {
-	auto* Settings = UCavrnusSubsystem::Get()->GetSettings();
-
-	if (Settings == nullptr)
+	auto* Sub = UCavrnusSubsystem::Get();
+	if (!Sub || !Sub->EditorContext)
 	{
-		UE_LOG(LogCavrnusConnector, Error, TEXT("[UCavrnusLoginManager::DoPieLogin] Unable to login! CavrnusConnectorSettings is null!"));
+		UE_LOG(LogCavrnusConnector, Error, TEXT("[UCavrnusLoginManager::DoPieLogin] Unable to login! Subsystem or EditorContext is null!"));
 		return;
 	}
-
-	auto* AuthManager = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>();
+	auto* AuthManager = Sub->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
 	if (AuthManager == nullptr)
 	{
 		UE_LOG(LogCavrnusConnector, Error, TEXT("[UCavrnusLoginManager::DoPieLogin] Unable to login! AuthManager is null!"));
 		return;
 	}
-	
-	FCavrnusLoginConfig LoginConfig;
-	LoginConfig.Server = AuthManager->GetPIEAuthedServer();
 
 	FCavrnusEditorLoginInfo EditorLogin;
-	
-	switch (AuthManager->GetCurrentAuthMethod())
+	FString ApiKey;
+	FString ApiToken;
+
+	if (AuthManager->GetCurrentAuthMethod() == ECavrnusAuthMethodForPIE::JoinAsPIE)
 	{
-	case ECavrnusAuthMethodForPIE::JoinAsPIE:
-		LoginConfig.bIsPieUserLogin = true;
-		if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->TryGetEditorLoginInfo(EditorLogin))
+		if (AuthManager->TryGetEditorLoginInfo(EditorLogin))
 		{
-			LoginConfig.ApiKey = EditorLogin.AccessKey;
-			LoginConfig.ApiToken = EditorLogin.AccessToken;
+			ApiKey = EditorLogin.AccessKey;
+			ApiToken = EditorLogin.AccessToken;
 		}
-		break;
-	case ECavrnusAuthMethodForPIE::JoinAsMember:
-		LoginConfig.AuthMethod = ECavrnusAuthMethod::JoinAsMember;
-		break;
-	case ECavrnusAuthMethodForPIE::JoinAsGuest:
-		LoginConfig.AuthMethod = ECavrnusAuthMethod::JoinAsGuest;
-		break;
 	}
-	
-	DoLogin("pie", LoginConfig);
+
+	FCavrnusLoginConfig LoginConfig = FCavrnusLoginConfig::ForPIE(
+		AuthManager->GetPIEAuthedServer(),
+		AuthManager->GetCurrentAuthMethod(),
+		ApiKey,
+		ApiToken);
+
+	DoLogin(LoginConfig);
+}
+
+void UCavrnusLoginManager::ResetLoginState()
+{
+	bLoginInitiated = false;
+	LoginFlow = nullptr;
 }
 
 void UCavrnusLoginManager::OnEndPIE(bool bIsSimulating)
 {
 	Super::OnEndPIE(bIsSimulating);
-	HasAttemptedToLoginAlready = false;
+	bLoginInitiated = false;
 }
 
 void UCavrnusLoginManager::OnAppShutdown()
 {
 	Super::OnAppShutdown();
-	HasAttemptedToLoginAlready = false;
+	bLoginInitiated = false;
 }
 
 bool UCavrnusLoginManager::ApplyCommandLineArgs(FCavrnusLoginConfig* InConfig)
 {
 	auto Overridden = false;
-	
+	bool HasGuestArg = false;
+	bool HasMemberArg = false;
+
 	FString Server;
 	if (FParse::Value(FCommandLine::Get(), TEXT("Server="), Server))
 	{
@@ -158,30 +173,49 @@ bool UCavrnusLoginManager::ApplyCommandLineArgs(FCavrnusLoginConfig* InConfig)
 	FString GuestName;
 	if (FParse::Value(FCommandLine::Get(), TEXT("GuestName="), GuestName))
 	{
-		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsGuest;
+		HasGuestArg = true;
 		InConfig->GuestName = GuestName;
+		InConfig->GuestLoginMethod = ECavrnusGuestLoginMethod::EnterNameBelow;
 		Overridden = true;
 	}
 
 	FString UserEmail;
 	if (FParse::Value(FCommandLine::Get(), TEXT("UserEmail="), UserEmail))
 	{
-		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+		HasMemberArg = true;
 		InConfig->MemberLoginEmail = UserEmail;
+		InConfig->MemberLoginMethod = ECavrnusMemberLoginMethod::EnterMemberCredentials;
 		Overridden = true;
 	}
 	FString UserPassword;
 	if (FParse::Value(FCommandLine::Get(), TEXT("UserPassword="), UserPassword))
 	{
-		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+		HasMemberArg = true;
 		InConfig->MemberLoginPassword = UserPassword;
+		InConfig->MemberLoginMethod = ECavrnusMemberLoginMethod::EnterMemberCredentials;
 		Overridden = true;
+	}
+
+	// Conflict detection: if both guest and member args are present, member wins
+	if (HasGuestArg && HasMemberArg)
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[ApplyCommandLineArgs] Both -GuestName= and -UserEmail= provided -- member login takes priority"));
+		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+	}
+	else if (HasMemberArg)
+	{
+		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+	}
+	else if (HasGuestArg)
+	{
+		InConfig->AuthMethod = ECavrnusAuthMethod::JoinAsGuest;
 	}
 
 	FString SpaceJoinId;
 	if (FParse::Value(FCommandLine::Get(), TEXT("SpaceJoinId="), SpaceJoinId))
 	{
 		InConfig->SpaceJoinId = SpaceJoinId;
+		InConfig->SpaceJoinMethod = ECavrnusSpaceJoinMethod::EnterJoinId;
 		Overridden = true;
 	}
 

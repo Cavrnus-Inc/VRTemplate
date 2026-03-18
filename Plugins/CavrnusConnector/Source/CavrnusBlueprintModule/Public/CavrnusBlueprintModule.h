@@ -5,6 +5,10 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 
+#if WITH_EDITOR
+#include "EdGraphUtilities.h"
+#endif
+
 DECLARE_LOG_CATEGORY_EXTERN(LogCavrnusBlueprintModule, Log, All);
 
 class FCavrnusBlueprintModule final : public IModuleInterface
@@ -17,5 +21,8 @@ public:
 	virtual void ShutdownModule() override;
 	
 private:
-
+	/** Keep a reference so we can unregister cleanly */
+#if WITH_EDITOR
+	TSharedPtr<FGraphPanelPinFactory> PinFactory;
+#endif
 };

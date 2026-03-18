@@ -22,7 +22,7 @@ public:
 			DisplayName = "Cavrnus Sync Property",
 			ReturnDisplayName = "PropertySync",
 			CustomStructureParam = "Property,SyncOptions"),
-			Category = "Cavrnus|Property")
+			Category = "Cavrnus|Properties")
 	//static void CavrnusSyncProperty(AActor* Owner, const FCavrnusSyncInfo& SyncInfo, FCavrnusSyncOptions SyncOptions, int32 Property);
 	static UCavrnusPropertySyncer* CavrnusInternalSyncProperty(AActor* Owner, const FCavrnusSyncInfo& SyncInfo, int32 Property, int32 SyncOptions);
 

@@ -5,12 +5,15 @@
 #include "CavrnusConnectorModule.h"
 #include "CavrnusConnectorSettings.h"
 #include "CavrnusFunctionLibrary.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusEditorContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "Managers/CavrnusEditorAuthenticationManager.h"
 #include "RelayModel/CavrnusRelayModel.h"
+#include "RelayModel/DataState.h"
 #include "RelayModel/RelayCallbackModel.h"
 #include "Translation/CavrnusProtoTranslation.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Systems/Messages/CavrnusScopedMessages.h"
 #include "UI/Systems/Messages/ToastMessages/CavrnusToastMessageUISystem.h"
 #include "UI/Systems/Messages/ToastMessages/Info/CavrnusInfoToastMessageWidget.h"
@@ -20,64 +23,92 @@ void UCavrnusLoginBaseFlow::DoLogin(const FCavrnusLoginConfig& InInitialLoginCon
 {
 	LoginConfig = InInitialLoginConfig;
 
-	UCavrnusFunctionLibrary::AwaitAnySpaceBeginLoading([this](const FString&) { ShowLoadingProgressWidget(true); });
-	UCavrnusFunctionLibrary::AwaitAnySpaceEndLoading([this] { ShowLoadingProgressWidget(false); });
-	UCavrnusFunctionLibrary::AwaitAuthentication([this](const FCavrnusAuthentication& ) { ShowAuthenticationProgressWidget(false); });
-	UCavrnusFunctionLibrary::AwaitAnySpaceConnection([this](const FCavrnusSpaceConnection& Sc)
+	// Use weak pointer — these callbacks can fire after the login flow UObject is GC'd
+	TWeakObjectPtr<UCavrnusLoginBaseFlow> WeakThis(this);
+	UCavrnusFunctionLibrary::AwaitAnySpaceBeginLoading([WeakThis](const FString&) { if (WeakThis.IsValid()) WeakThis->ShowLoadingProgressWidget(true); });
+	UCavrnusFunctionLibrary::AwaitAnySpaceEndLoading([WeakThis] { if (WeakThis.IsValid()) WeakThis->ShowLoadingProgressWidget(false); });
+	UCavrnusFunctionLibrary::AwaitAuthentication([WeakThis](const FCavrnusAuthentication& ) { if (WeakThis.IsValid()) WeakThis->ShowAuthenticationProgressWidget(false); });
+	UCavrnusFunctionLibrary::AwaitAnySpaceConnection([WeakThis](const FCavrnusSpaceConnection& Sc)
 	{
-		HandleConnectedSpace(Sc);
+		if (WeakThis.IsValid())
+			WeakThis->HandleConnectedSpace(Sc);
 	});
 }
 
 void UCavrnusLoginBaseFlow::AwaitValidServer(const TFunction<void()>& OnSuccess, const TFunction<void(const FString&)>&)
 {
-	UCavrnusFunctionLibrary::AwaitServerSet([this, OnSuccess](const FString& Server)
+	// Guard against use-after-free: relay callbacks outlive the UObject, so use weak pointer
+	TWeakObjectPtr<UCavrnusLoginBaseFlow> WeakThis(this);
+	auto BindServerWidget = [WeakThis, OnSuccess]()
 	{
-		UCavrnusFunctionLibrary::CheckServerStatus(Server,[this, OnSuccess, Server](const FCavrnusServerStatus& Status)
-		{
-			if (Status.Live)
-			{
-				const FString DomainName = Status.OrganizationInfo.Domain;
-				LoginConfig.Server = Server;
-				UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
-					->SetPrimaryText("Server Domain Accepted")
-					->SetSecondaryText(FString::Printf(TEXT("The server domain '%s' has been successfully validated."), *DomainName))
-					->SetType(ECavrnusInfoToastMessageEnum::Success);
+		if (!WeakThis.IsValid()) return;
 
-				Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->CurrentServer = Server;
-				
-				OnSuccess();
-				
-			} else
+		UCavrnusFunctionLibrary::AwaitServerSet([WeakThis, OnSuccess](const FString& Server)
+		{
+			if (!WeakThis.IsValid()) return;
+
+			UCavrnusFunctionLibrary::CheckServerStatus(Server,[WeakThis, OnSuccess, Server](const FCavrnusServerStatus& Status)
 			{
-				UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
-					->SetPrimaryText("Something Went Wrong")
-					->SetSecondaryText(Status.FailReason)
-					->SetType(ECavrnusInfoToastMessageEnum::Error);
-			}
+				if (!WeakThis.IsValid()) return;
+
+				if (Status.Live)
+				{
+					const FString DomainName = Status.OrganizationInfo.Domain;
+					WeakThis->LoginConfig.Server = Server;
+					UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
+						->SetPrimaryText("Server Domain Accepted")
+						->SetSecondaryText(FString::Printf(TEXT("The server domain '%s' has been successfully validated."), *DomainName))
+						->SetType(ECavrnusInfoToastMessageEnum::Success);
+
+					Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->CurrentServer = Server;
+
+					OnSuccess();
+				}
+				else
+				{
+					UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
+						->SetPrimaryText("Something Went Wrong")
+						->SetSecondaryText(Status.FailReason)
+						->SetType(ECavrnusInfoToastMessageEnum::Error);
+				}
+			});
 		});
-	});
-	
+
+		if (WeakThis.IsValid())
+			WeakThis->ShowServerSelectionWidget();
+	};
+
 	if (LoginConfig.Server.IsEmpty())
-		ShowServerSelectionWidget();
+	{
+		// If SaveUserAuthToken is enabled, try to recover the server from the saved runtime state
+		if (UCavrnusConnectorSettings::Get()->SaveUserAuthToken)
+		{
+			auto* Sub = UCavrnusSubsystem::Get();
+			if (Sub && Sub->EditorContext)
+			{
+				if (auto* AuthMgr = Sub->EditorContext->Get<UCavrnusEditorAuthenticationManager>())
+				{
+					const FString SavedServer = AuthMgr->GetRuntimeServer();
+					if (!SavedServer.IsEmpty())
+					{
+						UE_LOG(LogCavrnusConnector, Log, TEXT("[AwaitValidServer] Server is empty but found saved runtime server: %s -- using it"), *SavedServer);
+						LoginConfig.Server = SavedServer;
+						Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->CurrentServer = SavedServer;
+						OnSuccess();
+						return;
+					}
+				}
+			}
+		}
+
+		UE_LOG(LogCavrnusConnector, Log, TEXT("[AwaitValidServer] Server is empty -- showing server selection widget"));
+		BindServerWidget();
+	}
 	else
 	{
-		UCavrnusFunctionLibrary::CheckServerStatus(LoginConfig.Server,[this, OnSuccess](const FCavrnusServerStatus& Status)
-		{
-			if (Status.Live)
-			{
-				OnSuccess();
-				Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->CurrentServer = LoginConfig.Server;
-			}
-			else
-			{
-				ShowServerSelectionWidget();
-				UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
-					->SetPrimaryText("Something Went Wrong")
-					->SetSecondaryText(Status.FailReason)
-					->SetType(ECavrnusInfoToastMessageEnum::Error);
-			}
-		});
+		UE_LOG(LogCavrnusConnector, Log, TEXT("[AwaitValidServer] Server pre-populated: %s -- proceeding"), *LoginConfig.Server);
+		Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->CurrentServer = LoginConfig.Server;
+		OnSuccess();
 	}
 }
 
@@ -149,7 +180,7 @@ void UCavrnusLoginBaseFlow::PromptMemberLoginAndSaveToken(const TFunction<void()
 	ShowMemberLoginWidget(); 
 	UCavrnusFunctionLibrary::AwaitAuthentication([this, OnSuccess](const FCavrnusAuthentication& Auth) 
 	{
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->SetRuntimeToken(Auth.Token);
+		UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>()->SetRuntimeToken(Auth.Token);
 		
 		if (OnSuccess)
 			OnSuccess();
@@ -176,18 +207,21 @@ void UCavrnusLoginBaseFlow::HandleConnectedSpace(const FCavrnusSpaceConnection& 
 		->SetSecondaryText(FString::Printf(TEXT("You are now connected to the space \"%s\"."), *SpaceName))
 		->SetType(ECavrnusInfoToastMessageEnum::Success);
 
-	for (auto Widget : UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->WidgetsToLoad)
+	for (auto Widget : UCavrnusConnectorSettings::Get()->WidgetsToLoad)
 		UCavrnusUI::Get()->GenericWidgetDisplayer()->Show(Widget);
 
-	UCavrnusFunctionLibrary::AwaitAnySpaceExited([this]
+	// Same weak guard — space exit can fire after login flow is destroyed
+	TWeakObjectPtr<UCavrnusLoginBaseFlow> WeakThis(this);
+	UCavrnusFunctionLibrary::AwaitAnySpaceExited([WeakThis]
 	{
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->CloseAll();
+		if (WeakThis.IsValid())
+			UCavrnusUI::Get()->GenericWidgetDisplayer()->CloseAll();
 	});
 }
 
 void UCavrnusLoginBaseFlow::TryMemberAuthWithRuntimeToken(const TFunction<void()>& OnSuccess, const TFunction<void(const FString&)>& OnFail)
 {
-	const auto RuntimeToken = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->GetRuntimeToken();
+	const auto RuntimeToken = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>()->GetRuntimeToken();
 	if (RuntimeToken.IsEmpty())
 	{
 		if (OnFail)
@@ -196,21 +230,25 @@ void UCavrnusLoginBaseFlow::TryMemberAuthWithRuntimeToken(const TFunction<void()
 		return;
 	}
 
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->SaveUserAuthToken)
+	if (UCavrnusConnectorSettings::Get()->SaveUserAuthToken)
 	{
 		ShowAuthenticationProgressWidget(true); 
 		
 		int RequestId = Cavrnus::CavrnusRelayModel::GetDataModel()->GetCallbackModel()->RegisterAuthenticationCallback(
 			[this, OnSuccess](const FCavrnusAuthentication& Auth)
 			{
-				UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->SetRuntimeToken(Auth.Token);
+				auto* AuthMgr = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
+				AuthMgr->SetRuntimeToken(Auth.Token);
+				AuthMgr->SetRuntimeServer(LoginConfig.Server);
 				if (OnSuccess)
 					OnSuccess();
 			},
 			[this, OnFail](const FString& Error)
 			{
 				ShowAuthenticationProgressWidget(false);
-				UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->SetRuntimeToken("");
+				auto* AuthMgr = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
+				AuthMgr->SetRuntimeToken("");
+				AuthMgr->SetRuntimeServer("");
 				UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
 					->SetPrimaryText("Invalid Member Token")
 					->SetSecondaryText(Error)
@@ -240,7 +278,9 @@ void UCavrnusLoginBaseFlow::TryMemberAuthWithPassword(const TFunction<void()>& O
 		LoginConfig.MemberLoginPassword,
 		[this, OnSuccess](const FCavrnusAuthentication& Auth)
 		{
-			UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->SetRuntimeToken(Auth.Token);
+			auto* AuthMgr = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
+			AuthMgr->SetRuntimeToken(Auth.Token);
+			AuthMgr->SetRuntimeServer(LoginConfig.Server);
 
 			if (OnSuccess)
 				OnSuccess();
@@ -259,48 +299,77 @@ void UCavrnusLoginBaseFlow::TryMemberAuthWithPassword(const TFunction<void()>& O
 
 #pragma region UI Spawning
 
+void UCavrnusLoginBaseFlow::CloseCurrentFlowWidget()
+{
+	if (CurrentFlowWidget.IsValid())
+	{
+		UCavrnusUI::Get()->GenericWidgetDisplayer()->Close(CurrentFlowWidget.Get());
+		CurrentFlowWidget = nullptr;
+	}
+}
+
 void UCavrnusLoginBaseFlow::ShowMemberLoginWidget()
 {
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->MemberLoginMenu)
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->MemberLoginMenu);
+	if (UCavrnusConnectorSettings::Get()->MemberLoginMenu)
+	{
+		UE_LOG(LogCavrnusConnector, Log, TEXT("[LoginBaseFlow] ShowMemberLoginWidget -- widget is valid, displaying"));
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->MemberLoginMenu);
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[LoginBaseFlow] ShowMemberLoginWidget -- MemberLoginMenu is null! Cannot display widget."));
+	}
 }
 
 void UCavrnusLoginBaseFlow::ShowGuestLoginWidget()
 {
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->GuestJoinMenu)
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->GuestJoinMenu);
+	if (UCavrnusConnectorSettings::Get()->GuestJoinMenu)
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->GuestJoinMenu);
+}
+
+void UCavrnusLoginBaseFlow::ShowCombinedLoginWidget()
+{
+	if (UCavrnusConnectorSettings::Get()->CombinedLoginMenu)
+	{
+		UE_LOG(LogCavrnusConnector, Log, TEXT("[LoginBaseFlow] ShowCombinedLoginWidget -- widget is valid, displaying"));
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->CombinedLoginMenu);
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[LoginBaseFlow] ShowCombinedLoginWidget -- CombinedLoginMenu is null! Cannot display widget."));
+	}
 }
 
 void UCavrnusLoginBaseFlow::ShowJoinIdWidget()
 {
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->GuestJoinMenu)
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->JoinIdMenu);
+	if (UCavrnusConnectorSettings::Get()->JoinIdMenu)
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->JoinIdMenu);
 }
 
 void UCavrnusLoginBaseFlow::ShowServerSelectionWidget()
 {
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->ServerSelectionMenu)
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->ServerSelectionMenu);
+	if (UCavrnusConnectorSettings::Get()->ServerSelectionMenu)
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->ServerSelectionMenu);
 }
 
 void UCavrnusLoginBaseFlow::ShowSpaceListWidget()
 {
-	if (UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->SpacesListMenu)
-		UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->SpacesListMenu);
+	if (UCavrnusConnectorSettings::Get()->SpacesListMenu)
+		CurrentFlowWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->SpacesListMenu);
 }
 
 void UCavrnusLoginBaseFlow::ShowAuthenticationProgressWidget(const bool bShowWidget)
 {
-	if (bShowWidget && UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->AuthenticationWidgetMenu)
-		AuthLoadingWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->AuthenticationWidgetMenu);
+	if (bShowWidget && UCavrnusConnectorSettings::Get()->AuthenticationWidgetMenu)
+		AuthLoadingWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->AuthenticationWidgetMenu);
 	else
 		UCavrnusUI::Get()->GenericWidgetDisplayer()->Close(AuthLoadingWidget.Get());
 }
 
 void UCavrnusLoginBaseFlow::ShowLoadingProgressWidget(bool bShowWidget)
 {
-	if (bShowWidget && UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->LoadingWidgetMenu)
-		LoadingWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusSubsystem::Get()->Services->Get<UCavrnusConnectorSettings>()->LoadingWidgetMenu);
+	if (bShowWidget && UCavrnusConnectorSettings::Get()->LoadingWidgetMenu)
+		LoadingWidget = UCavrnusUI::Get()->GenericWidgetDisplayer()->ShowWithScrim(UCavrnusConnectorSettings::Get()->LoadingWidgetMenu);
 	else
 		UCavrnusUI::Get()->GenericWidgetDisplayer()->Close(LoadingWidget.Get());
 }

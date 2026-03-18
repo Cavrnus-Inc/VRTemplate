@@ -17,6 +17,7 @@
 #include "Types/CavrnusPropertyValue.h"
 #include "Types/PropertyPostOptions.h"
 #include "Types/CavrnusOrganizationInfo.h"
+#include "Types/CavrnusPropertyDefinition.h"
 
 namespace Cavrnus
 {
@@ -48,6 +49,21 @@ namespace Cavrnus
 		static const ServerData::RelayClientMessage BuildPostChatEntry(const FCavrnusSpaceConnection& spaceConn, const FString& chat);
 #pragma endregion
 
+#pragma region Property Definition Helpers
+		static Property::PropertyMetadata GenerateBaseMetadata(const FCavrnusPropertyMetadata& metadata);
+		static Property::StringEditingMetadata GenerateStringEditingMetadata(const FCavrnusStringPropertyDefinition& def);
+		static Property::ScalarEditingMetadata GenerateScalarEditingMetadata(const FCavrnusFloatPropertyDefinition& def);
+		static Property::ColorEditingMetadata GenerateColorEditingMetadata(const FCavrnusColorPropertyDefinition& def);
+		static Property::VectorEditingMetadata GenerateVectorEditingMetadata(const FCavrnusVectorPropertyDefinition& def);
+		static Property::TransformEditingMetadata GenerateTransformEditingMetadata(const FCavrnusTransformPropertyDefinition& def);
+
+		static const ServerData::RelayClientMessage BuildDefineStringPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusStringPropertyDefinition& def);
+		static const ServerData::RelayClientMessage BuildDefineFloatPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusFloatPropertyDefinition& def);
+		static const ServerData::RelayClientMessage BuildDefineColorPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusColorPropertyDefinition& def);
+		static const ServerData::RelayClientMessage BuildDefineBoolPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusBoolPropertyDefinition& def);
+		static const ServerData::RelayClientMessage BuildDefineVectorPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusVectorPropertyDefinition& def);
+		static const ServerData::RelayClientMessage BuildDefineTransformPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusTransformPropertyDefinition& def);
+#pragma endregion
 
 #pragma region Message Builders
 		static const ServerData::RelayClientMessage BuildKeepAliveMsg();

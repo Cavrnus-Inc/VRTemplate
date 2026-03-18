@@ -22,6 +22,12 @@
 class UOverlaySlot;
 class UOverlay;
 
+void UCavrnusDesktopCanvasWidgetDisplayer::Dispose()
+{
+	bIsInViewport = false;
+	DisplayedWidgets.Empty();
+}
+
 void UCavrnusDesktopCanvasWidgetDisplayer::Setup(UCavrnusWidgetBlueprintLookup* InBlueprintLookup)
 {
 	BpLookup = InBlueprintLookup;
@@ -39,8 +45,7 @@ void UCavrnusDesktopCanvasWidgetDisplayer::NativeConstruct()
 void UCavrnusDesktopCanvasWidgetDisplayer::NativeDestruct()
 {
 	Super::NativeDestruct();
-
-	bIsInViewport = false;
+	Dispose();
 }
 
 void UCavrnusDesktopCanvasWidgetDisplayer::DisplayRawWidget(const FGuid& Id, UUserWidget* InWidgetToDisplay)
@@ -89,6 +94,7 @@ void UCavrnusDesktopCanvasWidgetDisplayer::DisplayScreenWidget(
 	}
 }
 
+
 void UCavrnusDesktopCanvasWidgetDisplayer::DisplayPanelWidget(
 	UCavrnusBasePanelWidget* InWidgetToDisplay,
 	const FCavrnusPanelOptions& Options,
@@ -115,6 +121,7 @@ void UCavrnusDesktopCanvasWidgetDisplayer::DisplayPanelWidget(
 
 	DisplayedWidgets.Add(InWidgetToDisplay->GetId(), InWidgetToDisplay);
 }
+
 
 void UCavrnusDesktopCanvasWidgetDisplayer::DisplayPopupWidget(
 	UCavrnusBasePopupWidget* InUserWidget,

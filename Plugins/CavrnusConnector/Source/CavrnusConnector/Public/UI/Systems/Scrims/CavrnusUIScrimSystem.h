@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/DisposableUObject.h"
 #include "UI/Systems/CavrnusBaseUISystem.h"
 #include "UI/Systems/Displayers/CavrnusWidgetDisplayer.h"
 #include "UObject/Object.h"
@@ -27,11 +28,11 @@ struct FCavrnusScrimOptions : public FCavrnusBaseDisplayOptions
 };
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusUIScrimSystem : public UObject, public ICavrnusBaseUISystem
+class CAVRNUSCONNECTOR_API UCavrnusUIScrimSystem : public UDisposableUObject, public ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) override;
+	void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer);
 
 	template <typename TMessageType>
 	TMessageType* AssignToWidget(FGuid WidgetId, const FCavrnusScrimOptions& Options = FCavrnusScrimOptions())
@@ -49,7 +50,7 @@ public:
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) override;
 	
 	virtual void CloseAll() override;
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 
 private:
 	UPROPERTY()

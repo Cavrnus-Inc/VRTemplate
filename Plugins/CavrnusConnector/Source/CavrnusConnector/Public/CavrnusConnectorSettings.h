@@ -16,6 +16,7 @@ enum class ECavrnusAuthMethod : uint8
 {
 	JoinAsMember,
 	JoinAsGuest,
+	AllowBoth UMETA(DisplayName = "Allow Member or Guest"),
 };
 
 UENUM(BlueprintType)
@@ -41,6 +42,13 @@ enum class ECavrnusGuestLoginMethod : uint8
 };
 
 UENUM(BlueprintType)
+enum class ECavrnusPreferredLoginTab : uint8
+{
+	Member,
+	Guest,
+};
+
+UENUM(BlueprintType)
 enum class ECavrnusSpaceJoinMethod : uint8
 {
 	EnterJoinId,
@@ -54,6 +62,25 @@ class CAVRNUSCONNECTOR_API UCavrnusConnectorSettings : public UDeveloperSettings
 	GENERATED_BODY()
 
 public:
+	static UCavrnusConnectorSettings* Get()
+	{
+#if WITH_EDITOR
+		// Editor build: allow mutation
+		if (UCavrnusConnectorSettings* FoundSettings = GetMutableDefault<UCavrnusConnectorSettings>())
+		{
+			return FoundSettings;
+		}
+#else
+		// Runtime build: read-only access
+		if (const UCavrnusConnectorSettings* FoundSettings = GetDefault<UCavrnusConnectorSettings>())
+		{
+			return const_cast<UCavrnusConnectorSettings*>(FoundSettings); // if caller expects non-const
+		}
+#endif
+		UE_LOG(LogTemp, Error, TEXT("Unabled to find CavrnusSettings!"));
+		return nullptr;
+	}
+	
 	static void Show()
 	{
 		if (ISettingsModule* SettingsModule = FModuleManager::GetModulePtr<ISettingsModule>("Settings"))
@@ -96,26 +123,30 @@ public:
 
 	// Select User Authentication method
 	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options", meta = (DisplayName = "Authentication Method"))
-	ECavrnusAuthMethod AuthMethod = ECavrnusAuthMethod::JoinAsMember;
+	ECavrnusAuthMethod AuthMethod = ECavrnusAuthMethod::AllowBoth;
 
-	// Select the method for defining the Guest User name  
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Guest", meta = (EditCondition = "AuthMethod == ECavrnusAuthMethod::JoinAsGuest", EditConditionHides))
+	// Which tab to show first when using AllowBoth
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options", meta = (DisplayName = "Default Login Tab", EditCondition = "AuthMethod == ECavrnusAuthMethod::AllowBoth", EditConditionHides))
+	ECavrnusPreferredLoginTab PreferredLoginTab = ECavrnusPreferredLoginTab::Member;
+
+	// Select the method for defining the Guest User name
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Guest", meta = (EditCondition = "AuthMethod != ECavrnusAuthMethod::JoinAsMember", EditConditionHides))
 	ECavrnusGuestLoginMethod GuestLoginMethod = ECavrnusGuestLoginMethod::PromptToEnterName;
 
 	// Hard-code the Name that a Guest User will have
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Guest", meta = (EditCondition = "AuthMethod == ECavrnusAuthMethod::JoinAsGuest && GuestLoginMethod == ECavrnusGuestLoginMethod::EnterNameBelow", EditConditionHides))
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Guest", meta = (EditCondition = "AuthMethod != ECavrnusAuthMethod::JoinAsMember && GuestLoginMethod == ECavrnusGuestLoginMethod::EnterNameBelow", EditConditionHides))
 	FString GuestName = "";
 
 	// Select the method for obtaining the Team Member authentication credentials
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod == ECavrnusAuthMethod::JoinAsMember", EditConditionHides))
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod != ECavrnusAuthMethod::JoinAsGuest", EditConditionHides))
 	ECavrnusMemberLoginMethod MemberLoginMethod = ECavrnusMemberLoginMethod::EnterMemberCredentials;
 
 	// Hard-code the Team Member Email address
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod == ECavrnusAuthMethod::JoinAsMember && MemberLoginMethod == ECavrnusMemberLoginMethod::EnterMemberCredentials", EditConditionHides))
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod != ECavrnusAuthMethod::JoinAsGuest && MemberLoginMethod == ECavrnusMemberLoginMethod::EnterMemberCredentials", EditConditionHides))
 	FString MemberLoginEmail = "";
 
 	// Hard-code the Team Member Password
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod == ECavrnusAuthMethod::JoinAsMember && MemberLoginMethod == ECavrnusMemberLoginMethod::EnterMemberCredentials", EditConditionHides, PasswordField = true))
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Sign-in Options|Member", meta = (EditCondition = "AuthMethod != ECavrnusAuthMethod::JoinAsGuest && MemberLoginMethod == ECavrnusMemberLoginMethod::EnterMemberCredentials", EditConditionHides, PasswordField = true))
 	FString MemberLoginPassword = "";
 
 	// Select the method for choosing which Space to join
@@ -138,6 +169,10 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Menu Widgets")
 	TSubclassOf<UUserWidget> MemberLoginMenu;
 
+	// Select the Widget Blueprint for the Combined (Member + Guest) login
+	UPROPERTY(Config, EditAnywhere, Category = "Menu Widgets")
+	TSubclassOf<UUserWidget> CombinedLoginMenu;
+
 	// Select the Widget Blueprint for the Space List Menu
 	UPROPERTY(Config, EditAnywhere, Category = "Menu Widgets")
 	TSubclassOf<UUserWidget> SpacesListMenu;
@@ -159,7 +194,34 @@ public:
 	bool bAutoSetupLocalPawn = true;
 	UPROPERTY(Config, EditAnywhere, Category = "Pawn Options")
 	bool bAutoSetupRemotePawns = true;
+
+	// When enabled, exiting a space automatically loads the specified level, destroying all actors and ensuring clean state
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Space Exit Options")
+	bool bLoadLevelOnSpaceExit = false;
+
+	// Level to load when exiting a space
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Space Exit Options",
+		meta = (EditCondition = "bLoadLevelOnSpaceExit", EditConditionHides))
+	TSoftObjectPtr<UWorld> SpaceExitLevel;
+
+	// When enabled, deauthenticating automatically loads the specified level
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Space Exit Options")
+	bool bLoadLevelOnDeauthenticate = false;
+
+	// Level to load when deauthenticating
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = "Space Exit Options",
+		meta = (EditCondition = "bLoadLevelOnDeauthenticate", EditConditionHides))
+	TSoftObjectPtr<UWorld> DeauthenticateLevel;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Datasmith Import Options")
+	bool bIgnoreVersionCheck = false;
+
+	UPROPERTY(Config, EditAnywhere, Category = "Datasmith Import Options")
+	bool bFixTwinmotionLODs = false;
 	
+	UPROPERTY(Config, EditAnywhere, Category = "Datasmith Import Options")
+	bool bEnableDatasmithMaterialRepair = true;
+
 	// Relative to AppData/Local; root directory for runtime data, logs, and system files
 	UPROPERTY(Config, EditAnywhere, Category = "Debug Configuration")
 	FString StorageRootPath = FApp::GetProjectName();

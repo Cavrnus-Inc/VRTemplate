@@ -114,14 +114,17 @@ public class CavrnusConnector : ModuleRules
             "EnhancedInput",
             "Json",
             "JsonUtilities",
+            "LevelSequence",
+            "MovieScene",
+            "SequencerScripting",
+            "XmlParser",
+            "AIModule",
+            "NavigationSystem" 
 //#if UE_5_4_OR_LATER
 //            "ImageCore",
 //#endif
         }
         );
-        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Archive"));
-        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Archive/ZipUtilities"));
-        PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Archive/ZipUtilities/ThirdParty"));
 
         PublicIncludePathModuleNames.AddRange(
         new string[]

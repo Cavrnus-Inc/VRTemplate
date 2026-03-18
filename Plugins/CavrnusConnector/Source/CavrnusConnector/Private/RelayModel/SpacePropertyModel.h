@@ -9,6 +9,7 @@
 #include "Types/CavrnusPropertyValue.h"
 #include "Types/PropertiesContainer.h"
 #include "Types/CavrnusSpaceConnection.h"
+#include "Types/CavrnusPropertyDefinition.h"
 #include "SpaceChatModel.h"
 
 namespace Cavrnus
@@ -46,7 +47,11 @@ namespace Cavrnus
 		void InvalidateLocalPropValue(const FAbsolutePropertyId& fullPropertyId, int propValidationId);
 		void UpdatePropMetadata(const FAbsolutePropertyId& fullPropertyId, bool isReadonly);
 
+		void SetPropertyDefinition(const FAbsolutePropertyId& fullPropertyId, const FCavrnusPropertyMetadata& metadata);
+		FCavrnusPropertyMetadata GetPropertyMetadata(const FAbsolutePropertyId& fullPropertyId) const;
+
 		UCavrnusBinding* BindProperty(const FAbsolutePropertyId& fullPropertyId, CavrnusPropertyFunction callback);
+		UCavrnusBinding* BindContainerProperties(const FString& containerName, CavrnusPropertyFunction callback, bool bIncludeExisting = true);
 
 		UCavrnusBinding* BindUserVideoTexture(const FCavrnusUser& User, VideoFrameUpdateFunction callback);
 
@@ -77,11 +82,13 @@ namespace Cavrnus
 		TMap<FAbsolutePropertyId, FPropertyValue> CurrLocalPropValues;
 
 		TMap<FAbsolutePropertyId, bool> CurrPropReadonlyMetadata;
+		TMap<FAbsolutePropertyId, FCavrnusPropertyMetadata> CurrPropFullMetadata;
 
 		int validationIdIncrementer = 0;
 		TMap<FAbsolutePropertyId, int> LocalPropValidationIds;
 				
 		TMap<FAbsolutePropertyId, TArray<CavrnusPropertyFunction*>> PropBindings;
+		TMap<FString, TArray<CavrnusPropertyFunction*>> ContainerBindings;
 
 		TArray<CavrnusSpaceUserEvent*> LocalUserArrivedCallbacks;
 
@@ -89,6 +96,8 @@ namespace Cavrnus
 		TArray<CavrnusSpaceUserEvent*> UserRemovedBindings;
 
 		TMap<FString, TArray<VideoFrameUpdateFunction*>> UserVideoFrameBindings;
+
+		TArray<FString> RegisteredBindingIds;
 
 		FPropertyValue GetCurrentPropValue(const FAbsolutePropertyId& fullPropertyId);
 		void TryExecPropBindings(const FAbsolutePropertyId& fullPropertyId);

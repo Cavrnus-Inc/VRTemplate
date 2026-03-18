@@ -7,4 +7,6 @@ void UCavrnusScopedMessages::Initialize(UCavrnusWidgetBlueprintLookup* InLookup,
 {
 	ToastMessages = NewObject<UCavrnusToastMessageUISystem>(this);
 	ToastMessages->Initialize(InLookup, InDisplayer);
+	
+	AlsoDispose(ToastMessages.Get());
 }

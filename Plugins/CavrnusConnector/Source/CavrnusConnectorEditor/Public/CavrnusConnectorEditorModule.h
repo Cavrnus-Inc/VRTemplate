@@ -6,8 +6,6 @@
 #include "Modules/ModuleManager.h"
 #include "Tools/CavrnusEditorToolsManager.h"
 #include "UI/CavrnusEditorUIManager.h"
-#include "IAssetTypeActions.h"
-#include "AssetTypeActions_Base.h"
 #include "Engine/World.h"
 #include "Editor.h"
 
@@ -25,9 +23,11 @@ public:
 	virtual void StartupModule() override;
 	virtual void ShutdownModule() override;
 private:
+    void RegisterTabs();
+    void UnregisterTabs();
 
 	TStrongObjectPtr<UCavrnusEditorUIManager>         EditorUI;
 	TStrongObjectPtr<UCavrnusEditorToolsManager>      EditorTools;
 
-	TArray<TSharedPtr<IAssetTypeActions>> RegisteredOverrides;
+	TSharedRef<class SDockTab> SpawnActorOptimizationTab(const class FSpawnTabArgs& Args);
 };

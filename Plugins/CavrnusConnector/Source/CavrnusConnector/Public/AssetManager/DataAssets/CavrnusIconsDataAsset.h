@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "AssetManager/CavrnusBaseDataAsset.h"
+#include "Engine/Texture2D.h"
 #include "CavrnusIconsDataAsset.generated.h"
 
 USTRUCT(BlueprintType)

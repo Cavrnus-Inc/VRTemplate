@@ -14,27 +14,11 @@ void UCavrnusInfoToastMessageWidget::SynchronizeProperties()
 		SetStyle(ToastMessageEnum);
 }
 
-UCavrnusInfoToastMessageWidget* UCavrnusInfoToastMessageWidget::SetType(const ECavrnusInfoToastMessageEnum& InType)
+UCavrnusBaseToastMessageWidget* UCavrnusInfoToastMessageWidget::SetType(const ECavrnusInfoToastMessageEnum& InType)
 {
 	ToastMessageEnum = InType;
 	SetStyle(InType);
 
-	return this;
-}
-
-UCavrnusInfoToastMessageWidget* UCavrnusInfoToastMessageWidget::SetPrimaryText(const FString& InPrimaryText)
-{
-	if (PrimaryText)
-		PrimaryText->SetText(FText::FromString(InPrimaryText));
-	
-	return this;
-}
-
-UCavrnusInfoToastMessageWidget* UCavrnusInfoToastMessageWidget::SetSecondaryText(const FString& InSecondaryText)
-{
-	if (SecondaryText)
-		SecondaryText->SetText(FText::FromString(InSecondaryText));
-	
 	return this;
 }
 

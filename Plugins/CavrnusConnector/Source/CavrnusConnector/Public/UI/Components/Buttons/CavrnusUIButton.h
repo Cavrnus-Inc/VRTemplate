@@ -28,6 +28,11 @@ public:
 	virtual void SetIcon(UTexture2D* IconTexture);
 	virtual void SetEnabledState(bool IsEnabled) override;
 	virtual void SetVisibleState(bool IsVisible);
+	virtual void SetSelected(bool bInSelected);
+
+	/** Hides UWidget::SetIsEnabled — use SetEnabledState() instead.
+	 *  Routes through SetEnabledState to keep IsDisabled in sync. */
+	void SetIsEnabled(bool bInIsEnabled) { SetEnabledState(bInIsEnabled); }
 
 	void OverrideButtonStyle(UCavrnusUIButtonStyle* StyleOverride);
 
@@ -39,6 +44,7 @@ protected:
 	bool IsDisabled = false;
 	bool IsPressed = false;
 	bool IsHovered = false;
+	bool IsToggled = false;
 	bool HasKeyboardFocus = false;
 	
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Cavrnus")

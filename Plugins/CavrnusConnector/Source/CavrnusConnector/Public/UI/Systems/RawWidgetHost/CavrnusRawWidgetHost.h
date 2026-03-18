@@ -12,11 +12,11 @@ struct FCavrnusScrimOptions;
 class ICavrnusWidgetDisplayer;
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusRawWidgetHost : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusRawWidgetHost : public UDisposableUObject
 {
 	GENERATED_BODY()
 public:
-	void Initialize(UObject* InOuterObject, ICavrnusWidgetDisplayer* InDisplayer);
+	void Initialize(UObject* InOuterObject, ICavrnusWidgetDisplayer* InDisplayer, const UCavrnusUIArbiter* Arbiter);
 	
 	UUserWidget* Show(const TSubclassOf<UUserWidget>& InBlueprint);
 	UUserWidget* ShowWithScrim(const TSubclassOf<UUserWidget>& InBlueprint, const FCavrnusScrimOptions& ScrimOptions = FCavrnusScrimOptions());
@@ -25,7 +25,7 @@ public:
 
 	void SetVisibility(const bool bVis);
 
-	void Teardown();
+	virtual void Dispose() override;
 
 private:
 	UPROPERTY()

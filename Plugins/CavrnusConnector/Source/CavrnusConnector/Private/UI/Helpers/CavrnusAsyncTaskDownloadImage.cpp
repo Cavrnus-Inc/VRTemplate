@@ -13,7 +13,7 @@
 #include "RenderingThread.h"
 #include "RHICommandList.h"
 #include "Modules/ModuleManager.h"
-#include "IImageWrapperModule.h"   
+#include "Runtime/Launch/Resources/Version.h"
 
 #include "Interfaces/IHttpResponse.h"
 
@@ -24,7 +24,11 @@ static void WriteRawToTexture_RenderThread(FTexture2DDynamicResource* TextureRes
 
 	if (TextureResource)
 	{
+#if ENGINE_MAJOR_VERSION == 5 && ENGINE_MINOR_VERSION >= 4
+		FTextureRHIRef TextureRHI = TextureResource->GetTexture2DRHI();
+#else
 		FRHITexture2D* TextureRHI = TextureResource->GetTexture2DRHI();
+#endif
 
 		int32 Width = TextureRHI->GetSizeX();
 		int32 Height = TextureRHI->GetSizeY();

@@ -20,7 +20,7 @@ void UCavrnusExploreMode::BindInputActions(UEnhancedInputComponent* InputCompone
 			TargetLookDelta,
 			DeltaTick,
 			40.0f);
-		
+
 		if (PlayerController.IsValid())
 		{
 			PlayerController->AddYawInput(SmoothDelta.X);
@@ -29,7 +29,7 @@ void UCavrnusExploreMode::BindInputActions(UEnhancedInputComponent* InputCompone
 	};
 
 	TickObj = UCavrnusTickableObject::Create(this, LookFunc);
-	
+
 	if (const UInputAction* Action = GetInputAction("move"))
 		InputBindings.Add(&InputComponent->BindAction(Action, ETriggerEvent::Triggered, this, &UCavrnusExploreMode::Move));
 	if (const UInputAction* Action = GetInputAction("look"))
@@ -41,10 +41,17 @@ void UCavrnusExploreMode::BindInputActions(UEnhancedInputComponent* InputCompone
 void UCavrnusExploreMode::Move(const FInputActionValue& Value)
 {
 	const FVector2D Input = Value.Get<FVector2D>();
-	if (GetPawn())
+	if (const auto* Controller = PlayerController.Get())
 	{
-		GetPawn()->AddMovementInput(GetPawn()->GetActorRightVector(), Input.X);
-		GetPawn()->AddMovementInput(GetPawn()->GetActorForwardVector(), Input.Y);
+		const FRotator ControlRot = Controller->GetControlRotation();
+		const FVector Forward = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::X);
+		const FVector Right = FRotationMatrix(ControlRot).GetUnitAxis(EAxis::Y);
+
+		if (GetPawn())
+		{
+			GetPawn()->AddMovementInput(Right, Input.X);
+			GetPawn()->AddMovementInput(Forward, Input.Y);
+		}
 	}
 }
 

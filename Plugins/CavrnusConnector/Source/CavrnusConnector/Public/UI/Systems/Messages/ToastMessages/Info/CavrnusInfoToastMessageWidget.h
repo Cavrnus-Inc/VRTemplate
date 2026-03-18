@@ -7,7 +7,6 @@
 #include "CavrnusInfoToastMessageThemeAsset.h"
 #include "UI/Components/Borders/CavrnusUIBorder.h"
 #include "UI/Components/Image/CavrnusUIImage.h"
-#include "UI/Components/Text/CavrnusUITextBlock.h"
 #include "UI/Systems/Messages/ToastMessages/CavrnusBaseToastMessageWidget.h"
 #include "CavrnusInfoToastMessageWidget.generated.h"
 
@@ -18,7 +17,7 @@ class CAVRNUSCONNECTOR_API UCavrnusInfoToastMessageWidget : public UCavrnusBaseT
 protected:
 	UPROPERTY(EditAnywhere, Category="Cavrnus")
 	ECavrnusInfoToastMessageEnum ToastMessageEnum = ECavrnusInfoToastMessageEnum::Info;
-	
+
 	UPROPERTY(BlueprintReadWrite, EditAnywhere, Category="Cavrnus")
 	TObjectPtr<UCavrnusInfoToastMessageThemeAsset> ThemeAsset;
 
@@ -26,26 +25,13 @@ protected:
 	TObjectPtr<UCavrnusUIImage> Icon = nullptr;
 
 	UPROPERTY(meta=(BindWidgetOptional))
-	TObjectPtr<UCavrnusUITextBlock> PrimaryText = nullptr;
-
-	UPROPERTY(meta=(BindWidgetOptional))
-	TObjectPtr<UCavrnusUITextBlock> SecondaryText = nullptr;
-
-	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UCavrnusUIBorder> PrimaryBorder = nullptr;
 
 	virtual void NativeConstruct() override;
 	virtual void SynchronizeProperties() override;
-	
+
 public:
-	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
-	UCavrnusInfoToastMessageWidget* SetType(const ECavrnusInfoToastMessageEnum& InType);
-
-	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
-	UCavrnusInfoToastMessageWidget* SetPrimaryText(const FString& InPrimaryText);
-
-	UFUNCTION(BlueprintCallable, Category="Cavrnus|UI|Messages")
-	UCavrnusInfoToastMessageWidget* SetSecondaryText(const FString& InSecondaryText);
+	virtual UCavrnusBaseToastMessageWidget* SetType(const ECavrnusInfoToastMessageEnum& InType) override;
 
 private:
 	void SetStyle(const ECavrnusInfoToastMessageEnum& InType);

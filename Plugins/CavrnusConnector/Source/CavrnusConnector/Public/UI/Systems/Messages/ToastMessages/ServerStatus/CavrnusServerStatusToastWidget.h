@@ -28,21 +28,13 @@ protected:
 	TObjectPtr<UCavrnusUIImage> Icon = nullptr;
 
 	UPROPERTY(meta=(BindWidgetOptional))
-	TObjectPtr<UCavrnusUITextBlock> PrimaryText = nullptr;
-
-	UPROPERTY(meta=(BindWidgetOptional))
-	TObjectPtr<UCavrnusUITextBlock> SecondaryText = nullptr;
-
-	UPROPERTY(meta=(BindWidgetOptional))
 	TObjectPtr<UCavrnusUIBorder> PrimaryBorder = nullptr;
 
 	virtual void NativeConstruct() override;
 	virtual void SynchronizeProperties() override;
-	
+
 public:
 	UCavrnusServerStatusToastWidget* SetStatus(const FCavrnusConnectionStatus& InStatus);
-	UCavrnusServerStatusToastWidget* SetPrimaryText(const FString& InPrimaryText);
-	UCavrnusServerStatusToastWidget* SetSecondaryText(const FString& InPrimaryText);
 	UCavrnusServerStatusToastWidget* SetIcon(UTexture2D* InIcon);
 
 private:

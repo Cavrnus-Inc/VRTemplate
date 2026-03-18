@@ -1,8 +1,9 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CavrnusLog.h"
 #include "CavrnusModeBase.h"
 #include "Core/Settings/Setting.h"
 #include "Managers/CavrnusService.h"
@@ -21,6 +22,7 @@ private:
 	TArray<UCavrnusModeBase*> ModeStack;
 
 public:
+	void Initialize() override;
 	TSetting<UClass*> CurrentActiveMode;
 	TSetting<UClass*> CurrentExplicitMode;
 	
@@ -50,7 +52,7 @@ public:
 		CurrentActiveMode.Set(T::StaticClass());
 		CurrentExplicitMode.Set(T::StaticClass());
 		
-		UE_LOG(LogTemp, Display, TEXT("Pushing new explicit mode! %s"), *NewMode->GetName());
+		UE_LOG(LogCavrnusConnector, Log, TEXT("Pushing new explicit mode! %s"), *NewMode->GetName());
 	}
 
 	template <typename T>
@@ -65,7 +67,7 @@ public:
 
 		CurrentActiveMode.Set(T::StaticClass());
 		
-		UE_LOG(LogTemp, Display, TEXT("Pushing new transient mode! %s"), *NewMode->GetName());
+		UE_LOG(LogCavrnusConnector, Display, TEXT("Pushing new transient mode! %s"), *NewMode->GetName());
 	}
 
 	void PopTransientMode()
@@ -80,7 +82,7 @@ public:
 		if (auto* Mode = ModeStack.Pop())
 		{
 			Mode->ExitMode();
-			UE_LOG(LogTemp, Display, TEXT("Popping mode! - %s"), *Mode->GetName());
+			UE_LOG(LogCavrnusConnector, Display, TEXT("Popping mode! - %s"), *Mode->GetName());
 		}
 
 		 CurrentActiveMode.Set(ModeStack.Top()->GetClass());
@@ -95,7 +97,7 @@ public:
 		return Cast<T>(ModeStack.Top());
 	}
 	
-	virtual void Teardown() override
+	virtual void Dispose() override
 	{
 		ModeStack.Empty();
 	}

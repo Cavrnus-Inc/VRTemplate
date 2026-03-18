@@ -57,8 +57,6 @@ public:
 	TMulticastDelegate<void(const ECavrnusEditorConnectedStateEnum& CurrentState)> OnConnStateChanged;
 
 	virtual void Initialize() override;
-	virtual void Deinitialize() override;
-	void Teardown();
 
 	bool HasEditorAuthenticated() const { return HasAuthenticated; }
 	ECavrnusAuthMethodForPIE GetCurrentAuthMethod();
@@ -66,9 +64,13 @@ public:
 
 	void SetRuntimeToken(const FString& InToken);
 	FString GetRuntimeToken();
+
+	void SetRuntimeServer(const FString& InServer);
+	FString GetRuntimeServer();
 	FString GetPIEAuthedServer();
 	
 	void DoConnect();
+	void DoDisconnect();
 
 	bool TryGetEditorLoginInfo(FCavrnusEditorLoginInfo& OutInfo);
 	FDelegateHandle BindConnectedState(const TFunction<void(const ECavrnusEditorConnectedStateEnum&)>& OnConnCallback);
@@ -78,6 +80,7 @@ private:
 	ECavrnusAuthMethodForPIE CurrentEditorAuthMethod = ECavrnusAuthMethodForPIE::JoinAsPIE;
 
 	static FString RuntimeToken;
+	static FString RuntimeServer;
 	static FString EditorAuthMethod;
 	static FString ServerKey;
 	static FString ApiEditorKey;

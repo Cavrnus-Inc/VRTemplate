@@ -20,10 +20,13 @@ namespace Cavrnus
 
 		FCavrnusAuthentication* CurrentAuthentication = nullptr;
 
+		bool bAuthenticatedAsGuest = false;
+
 		TArray<FCavrnusSpaceConnectionInfo>& GetCurrentSpaceConnections();
 
 		void AddSpaceConnection(const FCavrnusSpaceConnectionInfo& spaceConnection);
 		void RemoveSpaceConnection(int spaceConnId);
+		bool IsSpaceConnectionActive(int spaceConnId) const;
 
 		void AwaitAnySpaceConnection(const CavrnusSpaceConnected& onConnected);
 		void AwaitAnySpaceExited(const CavrnusSpaceExited& onConnected);
@@ -39,10 +42,20 @@ namespace Cavrnus
 		void AddJoinableSpace(FCavrnusSpaceInfo space);
 		void UpdateJoinableSpace(FCavrnusSpaceInfo space);
 		void RemoveJoinableSpace(FCavrnusSpaceInfo space);
+		const FCavrnusSpaceInfo* GetJoinableSpaceById(const FString& spaceId) const;
 
 		UCavrnusBinding* BindJoinableSpaces(CavrnusSpaceInfoEvent spaceAdded, CavrnusSpaceInfoEvent spaceUpdated, CavrnusSpaceInfoEvent spaceRemoved);
 
+		UCavrnusBinding* BindSpaceInfoChanged(ESpaceInfoChangeFlags changeMask, CavrnusSpaceInfoChangedEvent onChanged);
+
+		static ESpaceInfoChangeFlags DetectSpaceInfoChanges(const FCavrnusSpaceInfo& oldInfo, const FCavrnusSpaceInfo& newInfo);
+
 	private:
+		struct SpaceInfoChangedBinding
+		{
+			ESpaceInfoChangeFlags Mask;
+			CavrnusSpaceInfoChangedEvent* Callback;
+		};
 		TArray<FCavrnusSpaceConnectionInfo> CurrentSpaceConnections;
 
 		TArray<CavrnusSpaceConnected*> spaceConnectionBindings;
@@ -54,7 +67,8 @@ namespace Cavrnus
 		TArray<CavrnusSpaceInfoEvent*> JoinableSpaceUpdatedBindings;
 		TArray<CavrnusSpaceInfoEvent*> JoinableSpaceRemovedBindings;
 
-		
+		TArray<SpaceInfoChangedBinding> SpaceInfoChangedBindings;
+
 		TMap<ContentPredicate*, ContentArrived*> ContentAwaitPredicates;
 
 	};

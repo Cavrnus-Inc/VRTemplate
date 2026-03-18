@@ -21,7 +21,7 @@ UCavrnusLivePropertyUpdate::~UCavrnusLivePropertyUpdate()
 
 void UCavrnusLivePropertyUpdate::InitializeGeneric(Cavrnus::CavrnusRelayModel* relayModel, FCavrnusSpaceConnection spaceConn, const FAbsolutePropertyId& propertyId, Cavrnus::FPropertyValue value, const FPropertyPostOptions& options)
 {
-	livePropertyUpdate = new Cavrnus::CavrnusVirtualPropertyUpdate(relayModel, spaceConn, propertyId, value, options);
+	livePropertyUpdate = new Cavrnus::CavrnusVirtualPropertyUpdate(spaceConn, propertyId, value, options);
 }
 
 void UCavrnusLivePropertyUpdate::Cancel()

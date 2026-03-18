@@ -88,6 +88,16 @@ void UCavrnusUIButton::SetVisibleState(const bool IsVisible)
 		Button->SetVisibility(IsVisible ? ESlateVisibility::SelfHitTestInvisible : ESlateVisibility::Collapsed);
 }
 
+void UCavrnusUIButton::SetSelected(bool bInSelected)
+{
+	IsToggled = bInSelected;
+	if (ButtonStyleData && Button)
+	{
+		Button->SetStyle(IsToggled ? ButtonStyleData->ToggledStyle : ButtonStyleData->ButtonStyle);
+		ApplyContentStyle(ButtonStyleData->GetStyleForState(ResolvePriorityButtonVisualState()));
+	}
+}
+
 void UCavrnusUIButton::OverrideButtonStyle(UCavrnusUIButtonStyle* StyleOverride)
 {
 	ButtonStyleData = StyleOverride;
@@ -100,6 +110,7 @@ ECavrnusButtonState UCavrnusUIButton::ResolvePriorityButtonVisualState()
 	if (IsPressed)			return ECavrnusButtonState::Pressed;
 	if (IsHovered)			return ECavrnusButtonState::Hovered;
 	if (HasKeyboardFocus)	return ECavrnusButtonState::Focused;
+	if (IsToggled)			return ECavrnusButtonState::Toggled;
 
 	return ECavrnusButtonState::Normal;
 }

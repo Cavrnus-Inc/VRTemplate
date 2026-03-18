@@ -35,14 +35,25 @@ public class CavrnusBlueprintModule : ModuleRules
 
         AddDefaultIncludePaths();
 
+        // Editor-only dependencies
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.AddRange(new string[]
+            {
+                "GraphEditor",
+                "EditorSubsystem",
+                "EditorFramework",
+                "UnrealEd",
+                "PropertyEditor"
+            });
+        }
+
+        // Runtime dependencies (available in both editor and cooked)
         PrivateDependencyModuleNames.AddRange(new string[]
         {
-            "BlueprintGraph",
             "KismetCompiler",
             "Kismet",
-            "EditorSubsystem",
-            "EditorFramework",
-            "UnrealEd",
+            "BlueprintGraph",
             "Projects"
         });
 

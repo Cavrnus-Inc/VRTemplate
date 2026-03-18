@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UI/Systems/Containers/CavrnusBaseUIContainer.h"
+#include "AssetManager/CavrnusBaseDataAsset.h"
 #include "UI/Systems/Messages/ToastMessages/CavrnusBaseToastMessageWidget.h"
 #include "UI/Systems/Panels/CavrnusBasePanelWidget.h"
 #include "CavrnusWidgetBlueprintLookup.generated.h"
@@ -17,7 +18,7 @@ class UCavrnusBasePopupWidget;
 class FCavrnusWidgetFactory;
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusWidgetBlueprintLookup : public UDataAsset
+class CAVRNUSCONNECTOR_API UCavrnusWidgetBlueprintLookup : public UCavrnusBaseDataAsset
 {
 	GENERATED_BODY()
 public:

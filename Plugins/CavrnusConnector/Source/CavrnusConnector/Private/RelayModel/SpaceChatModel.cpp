@@ -12,7 +12,26 @@ namespace Cavrnus
 
 	SpaceChatModel::~SpaceChatModel()
 	{
+		// Remove stale binding entries without invoking their lambdas
+		CavrnusBindingModel* bindingModel = CavrnusBindingModel::GetBindingModel();
+		for (const FString& id : RegisteredBindingIds)
+		{
+			bindingModel->RemoveBindingWithoutUnbind(id);
+		}
+		RegisteredBindingIds.Empty();
 
+		// Delete heap-allocated callback pointers
+		for (auto* cb : ChatAddedBindings)
+			delete cb;
+		ChatAddedBindings.Empty();
+
+		for (auto* cb : ChatUpdatedBindings)
+			delete cb;
+		ChatUpdatedBindings.Empty();
+
+		for (auto* cb : ChatRemovedBindings)
+			delete cb;
+		ChatRemovedBindings.Empty();
 	}
 
 	void SpaceChatModel::AddChat(FChatEntry chat)
@@ -69,10 +88,14 @@ namespace Cavrnus
 		auto bindingId = Cavrnus::CavrnusBindingModel::GetBindingModel()->RegisterBinding([this, addedPtr, updatedPtr, removedPtr]()
 			{
 				ChatAddedBindings.Remove(addedPtr);
+				delete addedPtr;
 				ChatUpdatedBindings.Remove(updatedPtr);
+				delete updatedPtr;
 				ChatRemovedBindings.Remove(removedPtr);
+				delete removedPtr;
 			});
 
+		RegisteredBindingIds.Add(bindingId);
 
 		UCavrnusBinding* binding;
 		binding = NewObject<UCavrnusBinding>();

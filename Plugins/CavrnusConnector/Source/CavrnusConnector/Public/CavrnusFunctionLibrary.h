@@ -31,10 +31,12 @@
 #include "Types/CavrnusCallbackTypes.h"
 #include "Types/PropertyPostOptions.h"
 #include "Types/PropertiesContainer.h"
+#include "Types/CavrnusPropertyDefinition.h"
 #include "Types/CavrnusServerStatus.h"
 #include "Types/CavrnusConnectionStatusEnum.h"
 #include "Types/CavrnusServerMessage.h"
 #include "LivePropertyUpdates\CavrnusLivePropertyUpdate.h"
+#include "CavrnusConnectorSettings.h"
 
 #include <algorithm>
 
@@ -62,10 +64,12 @@ class CAVRNUSCONNECTOR_API UCavrnusFunctionLibrary : public UBlueprintFunctionLi
 	// Functions
 public:
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus")
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Advanced",
+		meta = (ToolTip = "Prevents the Cavrnus relay from shutting down when no spaces are connected. Call EndForceKeepAlive to release.", ShortToolTip = "Keep relay alive"))
 	static void SetForceKeepAlive();
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus")
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Advanced",
+		meta = (ToolTip = "Releases the keep-alive hold on the Cavrnus relay, allowing it to shut down when no spaces are connected.", ShortToolTip = "Release relay keep-alive"))
 	static void EndForceKeepAlive();
 
 #pragma region Authentication
@@ -77,21 +81,49 @@ public:
 	DECLARE_DYNAMIC_DELEGATE(FCavrnusSuccess);
 	DECLARE_DYNAMIC_DELEGATE_OneParam(FCavrnusError, FString, Error);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login", meta=(ToolTip="Disable ConnectOnStart in Settings if using this Blueprint Function"))
+	// --- Login API ---
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(ToolTip="Start the login flow using Plugin Settings. Disable ConnectOnStart if calling this from Blueprint."))
+	static void CavrnusLogin();
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(ToolTip="Start a member login flow. Leave parameters empty to use Plugin Settings or prompt the user.",
+			AdvancedDisplay="Email,Password,SpaceId"))
+	static void CavrnusLoginAsMember(const FString& Server, const FString& Email, const FString& Password, const FString& SpaceId);
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(ToolTip="Start a guest login flow. Leave parameters empty to use Plugin Settings or prompt the user.",
+			AdvancedDisplay="GuestName,SpaceId"))
+	static void CavrnusLoginAsGuest(const FString& Server, const FString& GuestName, const FString& SpaceId);
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(ToolTip="Show a combined login widget letting the user choose between Member or Guest login. Advanced pins allow pre-filling credentials.",
+			AdvancedDisplay="SpaceId,PreferredTab,MemberEmail,MemberPassword,GuestName"))
+	static void CavrnusLoginAllowBoth(const FString& Server, const FString& SpaceId, ECavrnusPreferredLoginTab PreferredTab, const FString& MemberEmail, const FString& MemberPassword, const FString& GuestName);
+
+	// --- Deprecated Login API (still functional) ---
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(DeprecatedFunction, DeprecationMessage="Use CavrnusLoginAsMember instead", ToolTip="Deprecated: Use CavrnusLoginAsMember instead"))
 	static void CavrnusLoginMemberFlow(const FString& OptionalServer);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login", meta=(ToolTip="Disable ConnectOnStart in Settings if using this Blueprint Function"))
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(DeprecatedFunction, DeprecationMessage="Use CavrnusLoginAsGuest instead", ToolTip="Deprecated: Use CavrnusLoginAsGuest instead"))
 	static void CavrnusLoginGuestFlow(const FString& OptionalServer);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login", meta=(ToolTip="Disable ConnectOnStart in Settings if using this Blueprint Function"))
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(DeprecatedFunction, DeprecationMessage="Use CavrnusLoginAsMember instead", ToolTip="Deprecated: Use CavrnusLoginAsMember instead"))
 	static void CavrnusLoginMemberFlowWithConfig(const FString& OptionalServer, const FString& OptionalEmail, const FString& OptionalPassword, const FString& OptionalSpaceToAutoJoin);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login", meta=(ToolTip="Disable ConnectOnStart in Settings if using this Blueprint Function"))
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(DeprecatedFunction, DeprecationMessage="Use CavrnusLoginAsGuest instead", ToolTip="Deprecated: Use CavrnusLoginAsGuest instead"))
 	static void CavrnusLoginGuestFlowWithConfig(const FString& OptionalServer, const FString& OptionalGuestName, const FString& OptionalSpaceToAutoJoin);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login", meta=(ToolTip="Disable ConnectOnStart in Settings if using this Blueprint Function"))
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Login",
+		meta=(DeprecatedFunction, DeprecationMessage="Use CavrnusLogin instead", ToolTip="Deprecated: Use CavrnusLogin instead"))
 	static void CavrnusLoginGlobalSettingsFlow();
-	
+
 	static void SetupCavrnusEventHooks();
 
 	/**
@@ -219,9 +251,34 @@ public:
 
 	static void AwaitAuthentication(CavrnusAuthRecv OnAuth);
 
+	/** Returns the Cavrnus plugin settings object. Use this to override settings at runtime (e.g., enable level-load-on-exit for testing). */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Cavrnus|Settings|Advanced",
+		meta = (ToolTip = "Returns the Cavrnus plugin settings. Changes take effect immediately at runtime.", ShortToolTip = "Get Cavrnus plugin settings"))
+	static UCavrnusConnectorSettings* GetCavrnusSettings();
+
+	/** Configures the level that loads when exiting a space. Set bEnabled=false to disable level loading on exit. */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Settings|Advanced",
+		meta = (ToolTip = "Set the level to auto-load on space exit. Disable to stay in the current level.", ShortToolTip = "Set exit level"))
+	static void SetSpaceExitLevel(bool bEnabled, TSoftObjectPtr<UWorld> Level);
+
+	/** Configures the level that loads when deauthenticating. Set bEnabled=false to disable level loading on deauth. */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Settings|Advanced",
+		meta = (ToolTip = "Set the level to auto-load on deauthenticate. Disable to stay in the current level.", ShortToolTip = "Set deauth level"))
+	static void SetDeauthenticateLevel(bool bEnabled, TSoftObjectPtr<UWorld> Level);
+
+	/**
+	 * @brief Deauthenticates the current user. Exits all active spaces, clears stored credentials, and kills the relay connection. A fresh login is required after calling this.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Authentication",
+		meta = (ToolTip = "Logs out the current user, exits all spaces, and requires a fresh login", ShortToolTip = "Logout and clear credentials"))
+	static void Deauthenticate();
+
+	/** C++ overload: deauthenticates and loads the specified level. Parameter overrides the plugin setting. */
+	static void Deauthenticate(TSoftObjectPtr<UWorld> LevelToLoad);
+
 	DECLARE_DYNAMIC_DELEGATE_OneParam(FCavrnusServerStatusRecv, FCavrnusServerStatus, Status);
 
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Server",
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Authentication",
 		meta = (ToolTip = "Checks the validity and status of a server endpoint and domain, such as 'domain.cavrn.us'", ShortToolTip = "Checks Server Validity"))
 	static void CheckServerStatus(const FString& Server, FCavrnusServerStatusRecv OnStatus);
 	static void CheckServerStatus(const FString& Server, CavrnusServerStatusRecv OnStatus);
@@ -267,7 +324,21 @@ public:
 	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindJoinableSpaces(FCavrnusSpaceInfoEvent SpaceAdded, FCavrnusSpaceInfoEvent SpaceUpdated, FCavrnusSpaceInfoEvent SpaceRemoved);
 
 	static UCavrnusBinding* BindJoinableSpaces(CavrnusSpaceInfoEvent SpaceAdded, CavrnusSpaceInfoEvent SpaceUpdated, CavrnusSpaceInfoEvent SpaceRemoved);
-	
+
+	/** @note ChangeFlags uses ESpaceInfoChangeFlags enum values for comparison */
+	DECLARE_DYNAMIC_DELEGATE_TwoParams(FCavrnusSpaceInfoChangedDelegate, const FCavrnusSpaceInfo&, SpaceInfo, int32, ChangeFlags);
+	/**
+	 * @brief Binds to specific types of space info changes. Only fires when the masked fields change.
+	 * @param ChangeMask Bitmask of ESpaceInfoChangeFlags indicating which changes to subscribe to. Use ESpaceInfoChangeFlags enum values.
+	 * @param OnChanged Delegate called when any of the masked fields change. ChangeFlags parameter uses ESpaceInfoChangeFlags values.
+	 * @return A disposable UCavrnusBinding instance.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Spaces",
+		meta = (ToolTip = "Binds to specific space info changes (name, tags, members, etc). Only fires when masked fields change. Use ESpaceInfoChangeFlags for ChangeMask values.", ShortToolTip = "Bind to space info changes", Bitmask, BitmaskEnum = "/Script/CavrnusConnector.ESpaceInfoChangeFlags"))
+	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindSpaceInfoChanged(UPARAM(meta = (Bitmask, BitmaskEnum = "/Script/CavrnusConnector.ESpaceInfoChangeFlags", ToolTip = "Use ESpaceInfoChangeFlags enum values to specify which changes to listen for")) int32 ChangeMask, FCavrnusSpaceInfoChangedDelegate OnChanged);
+
+	static UCavrnusBinding* BindSpaceInfoChanged(ESpaceInfoChangeFlags ChangeMask, CavrnusSpaceInfoChangedEvent OnChanged);
+
 	/**
 	 * @brief Checks if there is any active connection to a space.
 	 * @return True if connected to any space, false otherwise.
@@ -359,7 +430,7 @@ public:
 
 	DECLARE_DYNAMIC_DELEGATE_OneParam(FCavrnusUserAccountsFetched, const TArray<FCavrnusUserAccount>&, CavrnusUserAccounts);
 	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Spaces",
-		meta = (ToolTip = "Fetch all User Accounts on the server", ShortToolTip = "Fetch all User Accounts on the server"))
+		meta = (ToolTip = "Fetch all User Accounts on the server via the Relay connection", ShortToolTip = "Fetch all User Accounts (Relay)"))
 	static void FetchAllUserAccounts(FCavrnusUserAccountsFetched OnAccountsFetched);
 
 	static void FetchAllUserAccounts(CavrnusUserAccountsFetched OnAccountsFetched);
@@ -443,6 +514,9 @@ public:
 		meta = (ToolTip = "Disconnects you from a given space.  You will stop recieving property updates, and lose user & voice connections", ShortToolTip = "Disconnects you from a given space"))
 	static void ExitSpace(FCavrnusSpaceConnection SpaceConnection);
 
+	/** C++ overload: exits the space and loads the specified level when all spaces are closed. Parameter overrides the plugin setting. */
+	static void ExitSpace(FCavrnusSpaceConnection SpaceConnection, TSoftObjectPtr<UWorld> LevelToLoad);
+
 	DECLARE_DYNAMIC_DELEGATE(FCavrnusSpaceExited);
 	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Spaces",
 		meta = (ToolTip = "Triggers when you exit a space", ShortToolTip = "Triggers when you exit a space"))
@@ -489,6 +563,22 @@ public:
 	 */
 	static UCavrnusBinding* BindGenericPropertyValue(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const CavrnusPropertyFunction& OnPropertyUpdated);
 
+	/**
+	 * @brief Binds a callback to updates of any property within a container.
+	 * The callback fires for every existing property immediately and for any future property change in the container.
+	 * @param SpaceConnection The space connection containing the properties.
+	 * @param ContainerName The name of the container to watch.
+	 * @param OnPropertyUpdated Callback triggered when any property in the container is updated. Receives (PropertyType, ValueAsString, ContainerName, PropertyName).
+	 * @return A disposable binding instance.
+	 */
+	DECLARE_DYNAMIC_DELEGATE_FourParams(FContainerPropertyUpdated, FString, PropertyType, FString, Value, FString, ContainerName, FString, PropertyName);
+
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Triggers an Event when any property in the container changes. Set bNewOnly to true to skip existing properties.", ShortToolTip = "Triggers an Event when any property in the container changes"))
+	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindContainerPropertyValues(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, FContainerPropertyUpdated OnPropertyUpdated, bool bNewOnly = false);
+
+	static UCavrnusBinding* BindContainerPropertyValues(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const CavrnusPropertyFunction& OnPropertyUpdated, bool bNewOnly = false);
+
 	static UCavrnusLivePropertyUpdate* BeginTransientGenericPropertyUpdate(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, Cavrnus::FPropertyValue PropertyValue);
 
 	/**
@@ -506,8 +596,17 @@ public:
 	 * @param ContainerName The name of the container holding the property.
 	 * @param PropertyName The name of the property to query.
 	 */
-	static bool PropertyValueExists(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName);
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties",
+		meta = (ToolTip = "Check if a property exists in the journal for the space", ShortToolTip = "Check if a property exists"))
+	static bool PropertyValueExists(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName);
 
+	/**
+	 * @brief Test whether a property exists in the journal for the space.
+	 * @param SpaceConnection The space connection containing the property.
+	 * @param ContainerName The name of the container holding the property.
+	 * @param PropertyName The name of the property to query.
+	 */
+	static bool PropertyValueExists(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName);
 #pragma endregion
 
 #pragma region Color Prop Functions
@@ -989,6 +1088,68 @@ public:
 
 #pragma endregion
 
+#pragma region Property Definitions
+
+	// ============================================
+	// Property Definitions (metadata + default value)
+	// ============================================
+
+	/**
+	 * @brief Defines a string property with metadata (display name, description, enum options, etc.) and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a string property with metadata and a default value", ShortToolTip = "Defines a string property with metadata"))
+	static void DefineStringPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusStringPropertyDefinition Definition);
+
+	static void DefineStringPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusStringPropertyDefinition& Definition);
+
+	/**
+	 * @brief Defines a float property with metadata (display name, range, scalar type, etc.) and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a float property with metadata and a default value", ShortToolTip = "Defines a float property with metadata"))
+	static void DefineFloatPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusFloatPropertyDefinition Definition);
+
+	static void DefineFloatPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusFloatPropertyDefinition& Definition);
+
+	/**
+	 * @brief Defines a color property with metadata (HDR, alpha, etc.) and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a color property with metadata and a default value", ShortToolTip = "Defines a color property with metadata"))
+	static void DefineColorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusColorPropertyDefinition Definition);
+
+	static void DefineColorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusColorPropertyDefinition& Definition);
+
+	/**
+	 * @brief Defines a boolean property with metadata and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a bool property with metadata and a default value", ShortToolTip = "Defines a bool property with metadata"))
+	static void DefineBoolPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusBoolPropertyDefinition Definition);
+
+	static void DefineBoolPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusBoolPropertyDefinition& Definition);
+
+	/**
+	 * @brief Defines a vector property with metadata (vector usage hint, etc.) and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a vector property with metadata and a default value", ShortToolTip = "Defines a vector property with metadata"))
+	static void DefineVectorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusVectorPropertyDefinition Definition);
+
+	static void DefineVectorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusVectorPropertyDefinition& Definition);
+
+	/**
+	 * @brief Defines a transform property with metadata (allow set from user, allow unset, etc.) and a default value.
+	 */
+	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Properties|Advanced",
+		meta = (ToolTip = "Defines a transform property with metadata and a default value", ShortToolTip = "Defines a transform property with metadata"))
+	static void DefineTransformPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusTransformPropertyDefinition Definition);
+
+	static void DefineTransformPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusTransformPropertyDefinition& Definition);
+
+#pragma endregion
+
 #pragma region Permissions
 
 	// ============================================
@@ -1000,32 +1161,32 @@ public:
 	 * @param Policy The name of the policy that was updated.
 	 * @param IsAllowed Boolean indicating whether the policy is allowed or not.
 	 */
-	DECLARE_DYNAMIC_DELEGATE_TwoParams(FCavrnusPolicyUpdated, FString, Policy, bool, IsAllowed);
+	DECLARE_DYNAMIC_DELEGATE_TwoParams(FCavrnusPolicyUpdated, FString, Action, bool, IsAllowed);
 	
 	/**
 	 * @brief Binds a global policy update event for the user.
-	 * @param Policy The name of the policy to bind to.
-	 * @param OnPolicyUpdated The callback to trigger when the policy is updated.
+	 * @param Action The name of the ACTION to bind to.
+	 * @param OnPolicyUpdated The callback to trigger when the action is updated.
 	 * @return A disposable binding instance.
 	 */
 	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Internal",
-		meta = (ToolTip = "Binds an event to throw when a policy is/isn't allowed for the user (returns false until policies are fetched & resolved)", ShortToolTip = "Throws an event if a policy is allowed"))
-	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindGlobalPolicy(const FString& Policy, FCavrnusPolicyUpdated OnPolicyUpdated);
+		meta = (ToolTip = "Binds an event to throw when an ACTION is/isn't allowed for the user (returns false until policies are fetched & resolved)", ShortToolTip = "Throws an event if an action is allowed"))
+	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindPolicyActionPermitted(const FString& Action, FCavrnusPolicyUpdated OnPolicyUpdated);
 
-	static UCavrnusBinding* BindGlobalPolicy(FString Policy, CavrnusPolicyUpdated OnPolicyUpdated);
+	static UCavrnusBinding* BindPolicyActionPermitted(FString Action, CavrnusPolicyUpdated OnPolicyUpdated);
 
 	/**
 	 * @brief Binds a space-specific policy update event for the user.
-	 * @param SpaceConnection The space connection containing the policy.
-	 * @param Policy The name of the policy to bind to.
-	 * @param OnPolicyUpdated The callback to trigger when the policy is updated.
+	 * @param SpaceConnection The space connection containing the action.
+	 * @param Action The name of the ACTION to bind to.
+	 * @param OnPolicyUpdated The callback to trigger when the action is updated.
 	 * @return A disposable binding instance.
 	 */
 	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Internal",
-		meta = (ToolTip = "Binds an event to throw when a policy is/isn't allowed for the user in a given space (returns false until policies are fetched & resolved)", ShortToolTip = "Throws an event if a policy is allowed"))
-	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindSpacePolicy(FCavrnusSpaceConnection SpaceConnection, const FString& Policy, FCavrnusPolicyUpdated OnPolicyUpdated);
+		meta = (ToolTip = "Binds an event to throw when an action is/isn't allowed for the user in a given space (returns false until policies are fetched & resolved)", ShortToolTip = "Throws an event if an action is allowed"))
+	static UPARAM(DisplayName = "Disposable") UCavrnusBinding* BindSpacePolicyActionPermitted(FCavrnusSpaceConnection SpaceConnection, const FString& Action, FCavrnusPolicyUpdated OnPolicyUpdated);
 
-	static UCavrnusBinding* BindSpacePolicy(FCavrnusSpaceConnection SpaceConnection, const FString& Policy, CavrnusPolicyUpdated OnPolicyUpdated);
+	static UCavrnusBinding* BindSpacePolicyActionPermitted(FCavrnusSpaceConnection SpaceConnection, const FString& Action, CavrnusPolicyUpdated OnPolicyUpdated);
 
 #pragma endregion
 	
@@ -1558,21 +1719,56 @@ public:
 
 #pragma endregion
 
-#pragma region Ai
-
-	DECLARE_DYNAMIC_DELEGATE_OneParam(FCavrnusAiResponseFunction, const FString&, response);
-
-	UFUNCTION(BlueprintCallable, CallInEditor, Exec, Category = "Cavrnus|Ai",
-		meta = (ToolTip = "Asks ChatGPT a question about the current space journal", ShortToolTip = "Asks ChatGPT a question"))
-	static void QueryAiAboutCurrentSpace(const FCavrnusSpaceConnection& spaceConn, const FString& Question, const FCavrnusAiResponseFunction& onSuccess, const FCavrnusError& onFailure);
-
-	static void QueryAiAboutCurrentSpace(const FCavrnusSpaceConnection& spaceConn, const FString& Question, const TFunction<void(FString)>& onSuccess, const CavrnusError& onFailure);
-
-#pragma endregion
-
 	static FString CreateBindingId(Cavrnus::CavrnusUnbind bindingCallback);
 
 	static void UnbindWithId(FString bindingId);
+
+#pragma region ExposeOnSpawn Helpers
+
+	/**
+	 * @brief Sets an ExposeOnSpawn bool property value on an actor.
+	 * Used by UK2Nodes to set ExposeOnSpawn property values from Blueprint pins.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn bool property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnBoolProperty(AActor* Actor, const FString& PropertyName, bool Value);
+
+	/**
+	 * @brief Sets an ExposeOnSpawn float/int property value on an actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn float/int property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnFloatProperty(AActor* Actor, const FString& PropertyName, float Value);
+
+	/**
+	 * @brief Sets an ExposeOnSpawn string property value on an actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn string property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnStringProperty(AActor* Actor, const FString& PropertyName, const FString& Value);
+
+	/**
+	 * @brief Sets an ExposeOnSpawn vector property value on an actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn vector property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnVectorProperty(AActor* Actor, const FString& PropertyName, FVector4 Value);
+
+	/**
+	 * @brief Sets an ExposeOnSpawn transform property value on an actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn transform property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnTransformProperty(AActor* Actor, const FString& PropertyName, FTransform Value);
+
+	/**
+	 * @brief Sets an ExposeOnSpawn color property value on an actor.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Cavrnus|Objects",
+		meta = (ToolTip = "Sets an ExposeOnSpawn color property value on an actor", CallInEditor = "false"))
+	static void SetExposeOnSpawnColorProperty(AActor* Actor, const FString& PropertyName, FLinearColor Value);
+
+#pragma endregion
 
 private:
 
@@ -1587,7 +1783,6 @@ private:
 	static bool CheckErrors(FCavrnusSpaceConnection SpaceConnection);
 
 	static FDelegateHandle UiFlowTeardownHandle;
-	static bool HasLiveUiFlowManager;
 
 	static FDelegateHandle CavrnusShutdownHandle;
 	static bool ShutdownHooked;

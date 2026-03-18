@@ -43,9 +43,9 @@ void UCavrnusPawnActorComponentBase::Teardown()
 	
 	if (PawnSetupComp)
 	{
-		PawnSetupComp->OnAnyPawnReady.Remove(AnyHandle);
-		PawnSetupComp->OnLocalPawnReady.Remove(LocalHandle);
-		PawnSetupComp->OnRemotePawnReady.Remove(RemoteHandle);
+		PawnSetupComp->OnAnyPawnReadyNative.Remove(AnyHandle);
+		PawnSetupComp->OnLocalPawnReadyNative.Remove(LocalHandle);
+		PawnSetupComp->OnRemotePawnReadyNative.Remove(RemoteHandle);
 
 		AnyHandle.Reset();
 		LocalHandle.Reset();
@@ -83,9 +83,9 @@ void UCavrnusPawnActorComponentBase::InitializePawnSetupComponent(UCavrnusPawnCo
 	
 	if (PawnSetupComp)
 	{
-		AnyHandle = PawnSetupComp->OnAnyPawnReady.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleAnyPawnSync);
-		LocalHandle = PawnSetupComp->OnLocalPawnReady.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleLocalSync);
-		RemoteHandle = PawnSetupComp->OnRemotePawnReady.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleRemoteSync);
+		AnyHandle = PawnSetupComp->OnAnyPawnReadyNative.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleAnyPawnSync);
+		LocalHandle = PawnSetupComp->OnLocalPawnReadyNative.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleLocalSync);
+		RemoteHandle = PawnSetupComp->OnRemotePawnReadyNative.AddUObject(this, &UCavrnusPawnActorComponentBase::HandleRemoteSync);
 	}
 	else
 		UE_LOG(LogTemp, Error, TEXT("The provided PawnSetupComponent is null!"));

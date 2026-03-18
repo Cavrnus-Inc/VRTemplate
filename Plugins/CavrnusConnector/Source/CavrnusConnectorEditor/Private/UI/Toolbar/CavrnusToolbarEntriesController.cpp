@@ -4,6 +4,7 @@
 
 #include "UI/Tabs/CavrnusEditorTabController.h"
 #include "Utilities/CavrnusEditorHelpers.h"
+#include "Engine/Engine.h"
 
 #define LOCTEXT_NAMESPACE "CavrnusConnectorEditor"
 
@@ -45,6 +46,20 @@ void UCavrnusToolbarEntriesController::AddCavrnusSubEntries(FMenuBuilder& MenuBu
 		FUIAction(FExecuteAction::CreateLambda([this]
 		{
 			UCavrnusEditorTabController::ShowCavrnusTab();
+		})),
+		NAME_None,
+		EUserInterfaceActionType::Button
+	);
+
+	MenuBuilder.AddMenuSeparator();
+
+	MenuBuilder.AddMenuEntry(
+		FText::FromString(TEXT("Run Tests")),
+		FText::FromString(TEXT("Run all Cavrnus automation tests and log results")),
+		FSlateIcon(),
+		FUIAction(FExecuteAction::CreateLambda([]
+		{
+			GEngine->Exec(nullptr, TEXT("Automation RunTests Cavrnus"));
 		})),
 		NAME_None,
 		EUserInterfaceActionType::Button

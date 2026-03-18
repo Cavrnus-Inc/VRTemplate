@@ -1,6 +1,7 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "Pawns/PawnSyncComponents/CavrnusPawnSyncComponentBase.h"
+#include "CavrnusConnectorModule.h"
 #include "CavrnusFunctionLibrary.h"
 #include "Pawns/CavrnusPawnComponent.h"
 
@@ -10,24 +11,24 @@ UCavrnusPawnSyncComponentBase::UCavrnusPawnSyncComponentBase()
 
 void UCavrnusPawnSyncComponentBase::Teardown()
 {
-	if (BindingIds.IsEmpty())
+	if (bTornDown)
 		return;
+	bTornDown = true;
 
 	for (const auto Id : BindingIds)
 		UCavrnusFunctionLibrary::UnbindWithId(Id);
-
 	BindingIds.Empty();
 
 	if (PawnSetupComp)
 	{
 		if (AnyHandle.IsValid())
-			PawnSetupComp->OnAnyPawnReady.Remove(AnyHandle);
+			PawnSetupComp->OnAnyPawnReadyNative.Remove(AnyHandle);
 
 		if (LocalHandle.IsValid())
-			PawnSetupComp->OnLocalPawnReady.Remove(LocalHandle);
+			PawnSetupComp->OnLocalPawnReadyNative.Remove(LocalHandle);
 
 		if (RemoteHandle.IsValid())
-			PawnSetupComp->OnRemotePawnReady.Remove(RemoteHandle);
+			PawnSetupComp->OnRemotePawnReadyNative.Remove(RemoteHandle);
 
 		AnyHandle.Reset();
 		LocalHandle.Reset();
@@ -38,10 +39,9 @@ void UCavrnusPawnSyncComponentBase::Teardown()
 void UCavrnusPawnSyncComponentBase::InitializePawnSetupComponent(UCavrnusPawnComponent* Psc)
 {
 	PawnSetupComp = Psc;
-	
+
 	if (PawnSetupComp)
 	{
-		// Ensure we also catch the already-ready case using deferred callback API
 		FCavrnusPawnReady LocalDeferred;
 		LocalDeferred.BindUFunction(this, FName("HandleLocalSync"));
 
@@ -56,7 +56,7 @@ void UCavrnusPawnSyncComponentBase::InitializePawnSetupComponent(UCavrnusPawnCom
 		PawnSetupComp->AwaitCavrnusRemotePawnReady(RemoteDeferred);
 	}
 	else
-		UE_LOG(LogTemp, Error, TEXT("The provided PawnSetupComponent is null!"));
+		UE_LOG(LogCavrnusConnector, Error, TEXT("[InitializePawnSetupComponent] The provided PawnSetupComponent is null!"));
 }
 
 void UCavrnusPawnSyncComponentBase::HandleAnySync(
@@ -64,7 +64,6 @@ void UCavrnusPawnSyncComponentBase::HandleAnySync(
 	const FString& UserContainerName,
 	const FCavrnusUser& CavrnusUser)
 {
-	// Do some local AND/OR sync stuff!
 }
 
 void UCavrnusPawnSyncComponentBase::HandleLocalSync(
@@ -72,7 +71,6 @@ void UCavrnusPawnSyncComponentBase::HandleLocalSync(
 	const FString& UserPropertyPath,
 	const FCavrnusUser& CavrnusUser)
 {
-	// Do some local sync stuff!
 }
 
 void UCavrnusPawnSyncComponentBase::HandleRemoteSync(
@@ -80,5 +78,4 @@ void UCavrnusPawnSyncComponentBase::HandleRemoteSync(
 	const FString& UserPropertyPath,
 	const FCavrnusUser& CavrnusUser)
 {
-	// Do some remote sync stuff!
 }

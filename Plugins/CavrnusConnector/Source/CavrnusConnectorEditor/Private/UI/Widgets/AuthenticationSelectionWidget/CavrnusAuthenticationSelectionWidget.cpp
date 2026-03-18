@@ -4,7 +4,8 @@
 
 #include "CavrnusConnectorEditorModule.h"
 #include "CavrnusConnectorSettings.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusEditorContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "Managers/CavrnusEditorAuthenticationManager.h"
 
 void UCavrnusAuthenticationSelectionWidget::Setup()
@@ -45,7 +46,7 @@ void UCavrnusAuthenticationSelectionWidget::Setup()
 			AuthSelected(ECavrnusAuthMethodForPIE::JoinAsGuest);
 		}));
 
-	auto am = UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>();
+	auto am = UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>();
 	AuthChangedHandle = am->OnEditorAuthMethodChanged.AddWeakLambda(this, [this](const ECavrnusAuthMethodForPIE& Auth)
 	{
 		switch (Auth)
@@ -69,7 +70,7 @@ void UCavrnusAuthenticationSelectionWidget::NativeDestruct()
 
 	if (auto* Cs = UCavrnusSubsystem::Get())
 	{
-		if (auto* Am = Cs->Services->Get<UCavrnusEditorAuthenticationManager>())
+		if (auto* Am = Cs->EditorContext->Get<UCavrnusEditorAuthenticationManager>())
 			Am->OnEditorAuthMethodChanged.Remove(AuthChangedHandle);
 	}
 
@@ -78,5 +79,5 @@ void UCavrnusAuthenticationSelectionWidget::NativeDestruct()
 
 void UCavrnusAuthenticationSelectionWidget::AuthSelected(const ECavrnusAuthMethodForPIE& AuthMethod)
 {
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusEditorAuthenticationManager>()->SetLoginAuthMethod(AuthMethod);
+	UCavrnusSubsystem::Get()->EditorContext->Get<UCavrnusEditorAuthenticationManager>()->SetLoginAuthMethod(AuthMethod);
 }

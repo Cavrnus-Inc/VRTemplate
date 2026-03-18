@@ -3,7 +3,7 @@
 #include "CavrnusPropertiesContainer.h"
 #include <Engine/World.h>
 #include <GameFramework/Actor.h>
-#include "SpawnObjectHelpers.h"
+#include "Managers/SpawnedObjects/SpawnObjectHelpers.h"
 
 UCavrnusPropertiesContainer::UCavrnusPropertiesContainer()
 {

@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "CavrnusPropertyPoller.h"
 #include "CavrnusPropertySyncStructs.h"
+#include "Core/DisposableUObject.h"
 #include "LivePropertyUpdates/CavrnusLivePropertyUpdate.h"
 #include "Types/CavrnusSpaceConnection.h"
 #include "UObject/Object.h"
@@ -17,7 +18,7 @@
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FCavrnusPropertyReceived, bool, Local);
 
 UCLASS(BlueprintType)
-class CAVRNUSCONNECTOR_API UCavrnusPropertySyncer : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusPropertySyncer : public UDisposableUObject
 {
 	GENERATED_BODY()
 public:
@@ -28,7 +29,7 @@ public:
 	const FCavrnusSyncOptions& InSyncOptions);
 	
 	UFUNCTION(BlueprintCallable, Category="Cavrnus|Properties")
-	virtual void Teardown();
+	virtual void Dispose() override;
 
 	UPROPERTY(BlueprintAssignable, Category="Cavrnus|Properties")
 	FCavrnusPropertyReceived CavrnusPropertyReceived;

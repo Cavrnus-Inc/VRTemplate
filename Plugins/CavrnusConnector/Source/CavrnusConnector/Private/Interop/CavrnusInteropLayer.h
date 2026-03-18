@@ -23,6 +23,10 @@ namespace Cavrnus
 		CavrnusInteropLayer() {}
 		virtual ~CavrnusInteropLayer() {}
 
+		/** Initiate graceful shutdown of the interop layer.
+		 *  Called before destruction to give background threads time to stop. */
+		virtual void Shutdown() {}
+
 		virtual void Start() = 0;
 
 		virtual void SendMessage(const ServerData::RelayClientMessage& message) = 0;

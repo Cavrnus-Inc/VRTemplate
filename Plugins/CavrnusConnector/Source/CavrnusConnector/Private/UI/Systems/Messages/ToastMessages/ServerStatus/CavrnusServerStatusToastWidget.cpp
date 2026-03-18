@@ -33,22 +33,6 @@ UCavrnusServerStatusToastWidget* UCavrnusServerStatusToastWidget::SetStatus(cons
 	return this;
 }
 
-UCavrnusServerStatusToastWidget* UCavrnusServerStatusToastWidget::SetPrimaryText(const FString& InPrimaryText)
-{
-	if (PrimaryText)
-		PrimaryText->SetText(FText::FromString(InPrimaryText));
-	
-	return this;
-}
-
-UCavrnusServerStatusToastWidget* UCavrnusServerStatusToastWidget::SetSecondaryText(const FString& InPrimaryText)
-{
-	if (SecondaryText)
-		SecondaryText->SetText(FText::FromString(InPrimaryText));
-	
-	return this;
-}
-
 UCavrnusServerStatusToastWidget* UCavrnusServerStatusToastWidget::SetIcon(UTexture2D* InIcon)
 {
 	if (Icon)

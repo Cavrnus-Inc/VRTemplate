@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CavrnusLog.h"
 #include "CavrnusBaseListContainerWidget.h"
 #include "CavrnusListViewDataObject.h"
 
@@ -31,7 +32,7 @@ public:
 	{
 		// this is a bit of a bottleneck...
 		DataArray.Add(Item);
-		// UE_LOG(LogTemp, Error, TEXT("[AddItem] Count: %d"), SortedDataArray.Num());
+		// UE_LOG(LogCavrnusConnector, Error, TEXT("[AddItem] Count: %d"), SortedDataArray.Num());
 	
 		auto Index = DataArray.Num() - 1;
 
@@ -43,7 +44,7 @@ public:
 			Index = FindElementIndex(Item);
 			if (Index == INDEX_NONE)
 			{
-				UE_LOG(LogTemp, Error, TEXT("INDEX_NONE! Cannot AddItem!"));
+				UE_LOG(LogCavrnusConnector, Error, TEXT("INDEX_NONE! Cannot AddItem!"));
 				return;
 			}
 		}
@@ -76,7 +77,7 @@ public:
 			DataArray.Remove(Item);
 			ObjectArray.Remove(*FoundDataObjectPtr);
 		
-			UE_LOG(LogTemp, Error, TEXT("[RemoveItem] Removing Item! AFTER Count: %d"), DataArray.Num());
+			//UE_LOG(LogCavrnusConnector, Error, TEXT("[RemoveItem] Removing Item! AFTER Count: %d"), DataArray.Num());
 		}
 	}
 
@@ -101,7 +102,7 @@ public:
 	
 	void OnItemSelected(const TFunction<void(const DataType& SelectedData)>& OnSelected)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[OnItemSelected] Attempting to select item..."));
+		UE_LOG(LogCavrnusConnector, Verbose, TEXT("[OnItemSelected] Attempting to select item..."));
 		
 		if (!Container.IsValid() || !OnSelected)
 			return;
@@ -115,7 +116,7 @@ public:
 		{
 			if (!IsValid(SelectedObj))
 			{
-				UE_LOG(LogTemp, Error, TEXT("[OnItemSelected] This is a borked SelectedObj..."));
+				UE_LOG(LogCavrnusConnector, Error, TEXT("[OnItemSelected] This is a borked SelectedObj..."));
 				return;
 			}
 
@@ -124,10 +125,10 @@ public:
 				if (auto FoundData = DataMap.Find(CastedObj->Id))
 					OnSelected(*FoundData);
 				else
-					UE_LOG(LogTemp, Error, TEXT("[OnItemSelected] Unable to find requested data!!..."));
+					UE_LOG(LogCavrnusConnector, Error, TEXT("[OnItemSelected] Unable to find requested data!!..."));
 			} else
 			{
-				UE_LOG(LogTemp, Error, TEXT("[OnItemSelected] Unable to cast!!..."));
+				UE_LOG(LogCavrnusConnector, Error, TEXT("[OnItemSelected] Unable to cast!!..."));
 			}
 		});
 
@@ -296,5 +297,5 @@ void TCavrnusUIListHandler<DataType>::SetSelectedItem(DataType Item)
 		}
 	}
 	else
-		UE_LOG(LogTemp, Error, TEXT("[SetSelectedItem] Can't find item!"));
+		UE_LOG(LogCavrnusConnector, Error, TEXT("[SetSelectedItem] Can't find item!"));
 }

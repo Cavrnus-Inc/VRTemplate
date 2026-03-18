@@ -31,7 +31,7 @@ void UCavrnusPixelStreamingManager::Initialize()
 #endif
 }
 
-void UCavrnusPixelStreamingManager::Deinitialize()
+void UCavrnusPixelStreamingManager::Dispose()
 {
 #if WITH_PIXELSTREAMING
     if (UPixelStreamingDelegates* PSDelegate = UPixelStreamingDelegates::GetPixelStreamingDelegates())
@@ -66,13 +66,7 @@ void UCavrnusPixelStreamingManager::Deinitialize()
     bIsConnected = false;
 #endif
 
-    Super::Deinitialize();
-}
-
-
-void UCavrnusPixelStreamingManager::Teardown()
-{
-    UE_LOG(LogTemp, Log, TEXT("UCavrnusPixelStreamingManager::Teardown"));
+    Super::Dispose();
 }
 
 bool UCavrnusPixelStreamingManager::IsStreamingAvailable() const

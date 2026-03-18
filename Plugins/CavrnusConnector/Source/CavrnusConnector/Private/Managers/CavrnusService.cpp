@@ -1,6 +1,7 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "Managers/CavrnusService.h"
+#include "CavrnusConnectorModule.h"
 #include "Engine/Engine.h"
 #include "Misc/CoreDelegates.h"
 #if WITH_EDITOR
@@ -9,7 +10,7 @@
 
 void UCavrnusService::Initialize()
 {
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusLifecycleManagerBase::InitializeManager() from %s"), *this->GetClass()->GetName());
+	UE_LOG(LogCavrnusConnector, Verbose, TEXT("UCavrnusService::Initialize() from %s"), *this->GetClass()->GetName());
 	// Engine init
 	EngineInitHandle = FCoreDelegates::OnFEngineLoopInitComplete.AddUObject(this, &UCavrnusService::OnAppInit);
 
@@ -22,9 +23,11 @@ void UCavrnusService::Initialize()
 #endif
 }
 
-void UCavrnusService::Deinitialize()
+void UCavrnusService::Dispose()
 {
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusLifecycleManagerBase::DeinitializeManager() from %s"),*this->GetClass()->GetName());
+	Super::Dispose();
+	
+	UE_LOG(LogCavrnusConnector, Log, TEXT("UCavrnusService::Dispose() from %s"),*this->GetClass()->GetName());
 	if (EngineInitHandle.IsValid())
 		FCoreDelegates::OnFEngineLoopInitComplete.Remove(EngineInitHandle);
 
@@ -45,9 +48,4 @@ void UCavrnusService::Deinitialize()
 	BeginPIEHandle.Reset();
 	EndPIEHandle.Reset();
 #endif
-}
-
-void UCavrnusService::Teardown()
-{
-	UE_LOG(LogTemp, Warning, TEXT("UCavrnusLifecycleManagerBase::Teardown()"));
 }

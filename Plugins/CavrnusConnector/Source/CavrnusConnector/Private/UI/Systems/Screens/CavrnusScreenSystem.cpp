@@ -3,17 +3,20 @@
 #include "UI/Systems/Screens/CavrnusScreenSystem.h"
 
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 #include "UI/Systems/CavrnusUIArbiter.h"
 #include "UI/Systems/AssetLookup/CavrnusWidgetBlueprintLookup.h"
 #include "UI/Systems/Displayers/CavrnusWidgetDisplayer.h"
 
-void UCavrnusScreenSystem::Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer)
+void UCavrnusScreenSystem::Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer, UCavrnusUIArbiter* Arbiter)
 {
 	LookupAsset = InLookup;
 	
 	DisplayerObj = Cast<UObject>(InDisplayer);
 	Displayer = InDisplayer;
+
+	ArbiterSys = Arbiter;
 	
 	ScreenStack.Empty();
 }
@@ -35,9 +38,7 @@ void UCavrnusScreenSystem::Close(UCavrnusBaseUserWidget* WidgetToClose)
 	}
 
 	if (ScreenStack.IsEmpty())
-	{
-		UCavrnusUI::Get()->Arbiter()->SetVisibilityMode(EUIVisibilityMode::Normal);
-	}
+		ArbiterSys->SetVisibilityMode(EUIVisibilityMode::Normal);
 }
 
 void UCavrnusScreenSystem::CloseAll()
@@ -51,13 +52,19 @@ void UCavrnusScreenSystem::CloseAll()
 			Displayer->RemoveWidget(Screen->GetId());
 	}
 
-	UCavrnusUI::Get()->Arbiter()->SetVisibilityMode(EUIVisibilityMode::Normal);
+	ArbiterSys->SetVisibilityMode(EUIVisibilityMode::Normal);
 }
 
-void UCavrnusScreenSystem::Teardown()
+void UCavrnusScreenSystem::Dispose()
 {
-	CloseAll();
-	
+	while (ScreenStack.Num() > 0)
+	{
+		if (const auto* Screen = ScreenStack.Pop())
+			Displayer->RemoveWidget(Screen->GetId());
+	}
+
+	ScreenStack.Empty();
+	ArbiterSys.Reset();
 	Displayer = nullptr;
 }
 

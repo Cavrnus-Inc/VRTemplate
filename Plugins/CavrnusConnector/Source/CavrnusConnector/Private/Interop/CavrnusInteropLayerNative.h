@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CavrnusInteropLayer.h"
+#include <atomic>
+#include <mutex>
 
 namespace Cavrnus
 {
@@ -11,6 +13,8 @@ namespace Cavrnus
 	public:
 		CavrnusInteropLayerNative();
 		virtual ~CavrnusInteropLayerNative();
+
+		virtual void Shutdown() override;
 
 		virtual void Start();
 
@@ -30,13 +34,15 @@ namespace Cavrnus
 	private:
 		const FString GetPluginPath();
 
+		bool bShutDown = false;
 		uint8* sendbuf;
 		int sendbuflen;
 
 		typedef std::queue<ServerData::RelayRemoteMessage*> MessageProcessingQueue;
 		MessageProcessingQueue MessageProcessingQueueA_;
 		MessageProcessingQueue MessageProcessingQueueB_;
-		bool messageProcessingQueuePhase;
+		std::atomic<bool> messageProcessingQueuePhase;
+		std::mutex queueMutex_;
 
 		//Copied from: https://stackoverflow.com/questions/440133/how-do-i-create-a-random-alpha-numeric-string-in-c
 		std::string random_string(size_t length)

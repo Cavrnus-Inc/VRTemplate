@@ -11,7 +11,21 @@ namespace Cavrnus
 
 	SpacePermissionsModel::~SpacePermissionsModel()
 	{
+		// Remove stale binding entries without invoking their lambdas
+		CavrnusBindingModel* bindingModel = CavrnusBindingModel::GetBindingModel();
+		for (const FString& id : RegisteredBindingIds)
+		{
+			bindingModel->RemoveBindingWithoutUnbind(id);
+		}
+		RegisteredBindingIds.Empty();
 
+		// Delete heap-allocated callback pointers
+		for (auto& kvp : PolicyBindings)
+		{
+			for (auto* cb : kvp.Value)
+				delete cb;
+		}
+		PolicyBindings.Empty();
 	}
 
 	void SpacePermissionsModel::UpdatePolicyAllowed(FString policy, bool allowed)
@@ -41,10 +55,12 @@ namespace Cavrnus
 
 		auto bindingId = Cavrnus::CavrnusBindingModel::GetBindingModel()->RegisterBinding([this, policy, CallbackPtr]() {
 			PolicyBindings[policy].Remove(CallbackPtr);
+			delete CallbackPtr;
 			if (PolicyBindings[policy].IsEmpty())
 				PolicyBindings.Remove(policy);
 			});
 
+		RegisteredBindingIds.Add(bindingId);
 
 		UCavrnusBinding* binding;
 		binding = NewObject<UCavrnusBinding>();

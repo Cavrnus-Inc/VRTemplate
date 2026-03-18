@@ -3,6 +3,7 @@
 #include "UI/Menus/JoinCodeLogin/CavrnusJoinIdLoginWidget.h"
 #include "CavrnusFunctionLibrary.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Components/Buttons/CavrnusUIButton.h"
 #include "UI/Components/InputFields/CavrnusUIInputFieldValidated.h"
 #include "UI/Systems/Messages/CavrnusScopedMessages.h"
@@ -61,7 +62,7 @@ void UCavrnusJoinIdLoginWidget::TryJoinSpace(const FString& JoinId)
 	                                   }, [this](const FString& Err)
 	                                   {
 		                                   SetVisibility(ESlateVisibility::SelfHitTestInvisible);
-		                                   TryJoinSpaceButton->SetIsEnabled(false);
+		                                   TryJoinSpaceButton->SetEnabledState(false);
 
 	                                   	UCavrnusUI::Get()->Messages()->Toast()->CreateAutoClose<UCavrnusInfoToastMessageWidget>()
 											->SetPrimaryText("Failed to Join Space")

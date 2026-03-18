@@ -13,6 +13,167 @@ namespace Cavrnus
 
 	}
 
+#pragma region Property Definition Helpers
+
+	Property::PropertyMetadata CavrnusProtoTranslation::GenerateBaseMetadata(const FCavrnusPropertyMetadata& metadata)
+	{
+		Property::PropertyMetadata pb;
+		pb.set_name(TCHAR_TO_UTF8(*metadata.DisplayName));
+		pb.set_description(TCHAR_TO_UTF8(*metadata.Description));
+		pb.set_isreadonly(metadata.bReadOnly);
+		if (!metadata.Category.IsEmpty())
+			pb.set_category(TCHAR_TO_UTF8(*metadata.Category));
+		pb.set_internalorder(metadata.Order);
+		pb.set_isadvanced(metadata.bAdvanced);
+		return pb;
+	}
+
+	Property::StringEditingMetadata CavrnusProtoTranslation::GenerateStringEditingMetadata(const FCavrnusStringPropertyDefinition& def)
+	{
+		Property::StringEditingMetadata pb;
+		for (const auto& opt : def.EnumOptions)
+		{
+			auto* pbOpt = pb.add_enumerationoptions();
+			pbOpt->set_enumvalue(TCHAR_TO_UTF8(*opt.EnumValue));
+			pbOpt->set_displaytext(TCHAR_TO_UTF8(*opt.DisplayText));
+		}
+		pb.set_ismultiline(def.bIsMultiLine);
+		pb.set_isscript(def.bIsScript);
+		return pb;
+	}
+
+	Property::ScalarEditingMetadata CavrnusProtoTranslation::GenerateScalarEditingMetadata(const FCavrnusFloatPropertyDefinition& def)
+	{
+		Property::ScalarEditingMetadata pb;
+		pb.set_scalartype(static_cast<Property::ScalarEditingMetadata_ScalarInterpretationEnum>(static_cast<int>(def.ScalarType)));
+		if (def.UiIncrement != 0.0f)
+			pb.set_uiincrement(def.UiIncrement);
+		if (def.bHasRange)
+		{
+			pb.set_uiminimum(def.UiRangeMin);
+			pb.set_uimaximum(def.UiRangeMax);
+		}
+		return pb;
+	}
+
+	Property::ColorEditingMetadata CavrnusProtoTranslation::GenerateColorEditingMetadata(const FCavrnusColorPropertyDefinition& def)
+	{
+		Property::ColorEditingMetadata pb;
+		pb.set_allowhdr(def.bAllowHdr);
+		pb.set_usesalpha(def.bUsesAlpha);
+		return pb;
+	}
+
+	Property::VectorEditingMetadata CavrnusProtoTranslation::GenerateVectorEditingMetadata(const FCavrnusVectorPropertyDefinition& def)
+	{
+		Property::VectorEditingMetadata pb;
+		pb.set_usage(static_cast<Property::VectorEditingMetadata_VectorInterpretationEnum>(static_cast<int>(def.VectorUsage)));
+		return pb;
+	}
+
+	Property::TransformEditingMetadata CavrnusProtoTranslation::GenerateTransformEditingMetadata(const FCavrnusTransformPropertyDefinition& def)
+	{
+		Property::TransformEditingMetadata pb;
+		pb.set_allowsetfromusertransform(def.bAllowSetFromUserTransform);
+		pb.set_allowunset(def.bAllowUnset);
+		return pb;
+	}
+
+	// Helper to build the common DefinePropertyDefinition relay message wrapper
+	static ServerData::RelayClientMessage WrapPropertyDefinition(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const Property::AnyPropertyDeclaration& decl)
+	{
+		ServerData::DefinePropertyDefinition req;
+		req.mutable_spaceconn()->CopyFrom(CavrnusProtoTranslation::SpaceConnectionToPb(spaceConn));
+		req.set_propertyid(TCHAR_TO_UTF8(*(FAbsolutePropertyId::GetCombinedName(propertyId))));
+		req.mutable_decl()->CopyFrom(decl);
+		req.set_applytojournal(true);
+
+		ServerData::RelayClientMessage msg;
+		msg.mutable_definepropertydefinition()->CopyFrom(req);
+		return msg;
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineStringPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusStringPropertyDefinition& def)
+	{
+		Property::StringPropertyDeclaration typedDecl;
+		typedDecl.set_default_(TCHAR_TO_UTF8(*def.DefaultValue));
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		meta->mutable_edit()->CopyFrom(GenerateStringEditingMetadata(def));
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_string()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineFloatPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusFloatPropertyDefinition& def)
+	{
+		Property::ScalarPropertyDeclaration typedDecl;
+		typedDecl.set_default_(def.DefaultValue);
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		meta->mutable_edit()->CopyFrom(GenerateScalarEditingMetadata(def));
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_scalar()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineColorPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusColorPropertyDefinition& def)
+	{
+		Property::ColorPropertyDeclaration typedDecl;
+		typedDecl.mutable_default_()->CopyFrom(ToProtoColor(def.DefaultValue));
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		meta->mutable_edit()->CopyFrom(GenerateColorEditingMetadata(def));
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_color()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineBoolPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusBoolPropertyDefinition& def)
+	{
+		Property::BooleanPropertyDeclaration typedDecl;
+		typedDecl.set_default_(def.DefaultValue);
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		// BooleanEditingMetadata has no fields, but set it for completeness
+		meta->mutable_edit();
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_boolean()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineVectorPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusVectorPropertyDefinition& def)
+	{
+		Property::VectorPropertyDeclaration typedDecl;
+		typedDecl.mutable_default_()->CopyFrom(ToProtoVector(def.DefaultValue));
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		meta->mutable_edit()->CopyFrom(GenerateVectorEditingMetadata(def));
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_vector()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildDefineTransformPropertyDefinitionMsg(const FCavrnusSpaceConnection& spaceConn, const FAbsolutePropertyId& propertyId, const FCavrnusTransformPropertyDefinition& def)
+	{
+		Property::TransformPropertyDeclaration typedDecl;
+		typedDecl.mutable_default_()->CopyFrom(ToProtoTransform(def.DefaultValue));
+		auto* meta = typedDecl.mutable_meta();
+		meta->mutable_base()->CopyFrom(GenerateBaseMetadata(def.Metadata));
+		meta->mutable_edit()->CopyFrom(GenerateTransformEditingMetadata(def));
+
+		Property::AnyPropertyDeclaration decl;
+		decl.mutable_transform()->CopyFrom(typedDecl);
+		return WrapPropertyDefinition(spaceConn, propertyId, decl);
+	}
+
+#pragma endregion
+
 #pragma region Message Builders
 
 	const ServerData::RelayClientMessage CavrnusProtoTranslation::BuildKeepAliveMsg()
@@ -720,7 +881,15 @@ namespace Cavrnus
 			members.Add(ToSpaceMember(space.currentspacemembers()[i]));
 		}
 
-		return FCavrnusSpaceInfo(UTF8_TO_TCHAR(space.spaceid().c_str()), UTF8_TO_TCHAR(space.spacename().c_str()), UTF8_TO_TCHAR(space.spacethumbnailurl().c_str()), UTF8_TO_TCHAR(space.ownerid().c_str()), lastAccess, keywords, members);
+		// Extract tags from proto
+		TMap<FString, FString> tags;
+		for (int i = 0; i < space.tags_size(); i++)
+		{
+			const ServerData::Tag& tag = space.tags(i);
+			tags.Add(UTF8_TO_TCHAR(tag.key().c_str()), UTF8_TO_TCHAR(tag.value().c_str()));
+		}
+
+		return FCavrnusSpaceInfo(UTF8_TO_TCHAR(space.spaceid().c_str()), UTF8_TO_TCHAR(space.spacename().c_str()), UTF8_TO_TCHAR(space.spacethumbnailurl().c_str()), UTF8_TO_TCHAR(space.ownerid().c_str()), lastAccess, keywords, members, tags);
 	}
 
 	FCavrnusSpaceMember CavrnusProtoTranslation::ToSpaceMember(ServerData::CavrnusRoomMember member)

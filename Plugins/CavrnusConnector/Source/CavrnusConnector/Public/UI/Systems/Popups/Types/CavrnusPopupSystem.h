@@ -39,11 +39,11 @@ class ICavrnusWidgetDisplayer;
  * 
  */
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusPopupSystem : public UObject, public ICavrnusBaseUISystem
+class CAVRNUSCONNECTOR_API UCavrnusPopupSystem : public UDisposableUObject, public ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) override;
+	void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer);
 
 	template <typename TMessageType>
 	TMessageType* Create(const FCavrnusPopupOptions& Options = FCavrnusPopupOptions(), const FUIContextData& Data = FUIContextData())
@@ -60,7 +60,7 @@ public:
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) override;
 	virtual void CloseAll() override;
 
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 	
 private:
 	UPROPERTY()

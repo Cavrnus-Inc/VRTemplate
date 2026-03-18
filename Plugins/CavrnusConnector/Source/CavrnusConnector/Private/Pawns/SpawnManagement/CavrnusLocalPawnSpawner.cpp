@@ -4,9 +4,10 @@
 
 #include "CavrnusConnectorModule.h"
 #include "CavrnusFunctionLibrary.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "AssetManager/CavrnusDataAssetManager.h"
 #include "AssetManager/DataAssets/CavrnusPawnSettingsDataAsset.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
 #include "GameFramework/PlayerController.h"
 #include "LivePropertyUpdates/CavrnusLiveStringPropertyUpdate.h"
 #include "Pawns/CavrnusPawnFunctions.h"
@@ -37,9 +38,11 @@ void UCavrnusLocalPawnSpawner::Initialize(const FCavrnusUser& LocalUser)
 		SetupPawn();
 	}
 
-	UCavrnusFunctionLibrary::AwaitAnySpaceExited([this]
+	TWeakObjectPtr<UCavrnusLocalPawnSpawner> WeakThis(this);
+	UCavrnusFunctionLibrary::AwaitAnySpaceExited([WeakThis]
 	{
-		CleanUpLocalUserOnExitSpace();
+		if (WeakThis.IsValid())
+			WeakThis->CleanUpLocalUserOnExitSpace();
 	});
 }
 
@@ -50,7 +53,7 @@ void UCavrnusLocalPawnSpawner::SwitchPawnById(const FString& InPawnId)
 		Updater = UCavrnusFunctionLibrary::BeginTransientStringPropertyUpdate(
 		User.SpaceConn,
 		User.PropertiesContainerName,
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(), InPawnId);
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusDataAssetManager>()->GetAsset<UCavrnusPawnSettingsDataAsset>()->GetPropertyName(), InPawnId);
 	} else
 		Updater->UpdateWithNewData(InPawnId);
 }
@@ -95,6 +98,10 @@ void UCavrnusLocalPawnSpawner::SetupPawn()
 		Sc->NotifyAnyPawnReady(User);
 		Sc->NotifyLocalPawnReady(User);
 	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[LocalPawnSpawner::SetupPawn] Pawn '%s' has no UCavrnusPawnComponent -- local sync will not work"), *Pawn->GetName());
+	}
 }
 
 void UCavrnusLocalPawnSpawner::CleanUpLocalUserOnExitSpace()
@@ -112,6 +119,10 @@ void UCavrnusLocalPawnSpawner::CleanUpLocalUserOnExitSpace()
 
 	if (APawn* Pawn = PlayerController->GetPawn())
 	{
+		// Reset the pawn component back to pre-space-join state
+		if (auto* Sc = UCavrnusPawnFunctions::CavrnusFindPawnComponent(Pawn))
+			Sc->ResetSpaceState();
+
 		PlayerController->OnPossessedPawnChanged.RemoveDynamic(
 			this, &UCavrnusLocalPawnSpawner::LocalPawnPossessedChanged);
 	}

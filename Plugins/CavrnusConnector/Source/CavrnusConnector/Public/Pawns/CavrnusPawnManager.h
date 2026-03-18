@@ -34,10 +34,9 @@ public:
     void UnregisterUser(const FCavrnusUser& User);
 	
 	void SwitchPawnRuntime(const FString& PawnId);
-	virtual void Deinitialize() override;
-
     void Clear();
-	void Teardown();
+	
+	virtual void Dispose() override;
 	
 private:
 	bool HasSetupLocalUser = false;

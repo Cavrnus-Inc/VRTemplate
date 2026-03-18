@@ -1,6 +1,7 @@
 ﻿// Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "RelayModel/CavrnusBindingModel.h"
+#include "CavrnusConnectorModule.h"
 
 namespace Cavrnus
 {
@@ -29,7 +30,24 @@ namespace Cavrnus
 		{
 			(*BindingCallbacks[binding])();
 
+			delete BindingCallbacks[binding];
 			BindingCallbacks.Remove(binding);
+		}
+		else
+		{
+			UE_LOG(LogCavrnusConnector, Warning,
+				TEXT("[UnbindBinding] Binding ID '%s' not found. It may have already been cleaned up by a previous space session teardown. "
+					 "Actors holding Cavrnus bindings should be destroyed and recreated on space exit."),
+				*binding);
+		}
+	}
+
+	void CavrnusBindingModel::RemoveBindingWithoutUnbind(const FString& bindingId)
+	{
+		if (BindingCallbacks.Contains(bindingId))
+		{
+			delete BindingCallbacks[bindingId];
+			BindingCallbacks.Remove(bindingId);
 		}
 	}
 }

@@ -33,10 +33,6 @@ class CAVRNUSCONNECTOR_API ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) = 0;
-
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) = 0;
 	virtual void CloseAll() = 0;
-
-	virtual void Teardown()=0;
 };

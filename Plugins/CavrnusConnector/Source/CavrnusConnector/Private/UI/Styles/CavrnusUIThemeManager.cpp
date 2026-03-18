@@ -7,6 +7,8 @@
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "Engine/GameInstance.h"
+#include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 
 UCavrnusUIThemeAsset* UCavrnusUIThemeManager::EditorPreviewTheme = nullptr;
 
@@ -19,6 +21,13 @@ FLinearColor UCavrnusUIThemeManager::GetColorForRole(const ECavrnusThemeColorRol
 	}
 	
 	return ActiveTheme->GetColorForRole(Role);
+}
+
+void UCavrnusUIThemeManager::Dispose()
+{
+	Super::Dispose();
+
+	ActiveTheme = nullptr;
 }
 
 void UCavrnusUIThemeManager::Initialize()

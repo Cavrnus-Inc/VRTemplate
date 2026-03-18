@@ -3,6 +3,8 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "CavrnusBaseUISystem.h"
+#include "Core/DisposableUObject.h"
 #include "Core/Settings/Setting.h"
 #include "UI/CavrnusUI.h"
 #include "UObject/Object.h"
@@ -21,11 +23,11 @@ enum class EUIVisibilityMode : uint8
 };
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusUIArbiter : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusUIArbiter : public UDisposableUObject
 {
 	GENERATED_BODY()
 public:
-	TSetting<EUIVisibilityMode> CurrentUIVisMode;
+	TSharedPtr<TSetting<EUIVisibilityMode>> CurrentUIVisMode;
 	
 	void Initialize();
 	void SetVisibilityMode(const EUIVisibilityMode NewMode);

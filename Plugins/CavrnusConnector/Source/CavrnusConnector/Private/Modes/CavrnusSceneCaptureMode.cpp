@@ -2,9 +2,11 @@
 
 #include "Modes/CavrnusSceneCaptureMode.h"
 
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "Modes/CavrnusModeManager.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Systems/Screens/Types/ScreenCapture/CavrnusScreenCaptureModeWidget.h"
 
 void UCavrnusSceneCaptureMode::BindInputActions(
@@ -44,7 +46,7 @@ void UCavrnusSceneCaptureMode::PrimaryClick(const FInputActionValue& Value)
 	if (const bool Input = Value.Get<bool>())
 	{
 		// Take Picture!
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusModeManager>()->PopTransientMode();
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusModeManager>()->PopTransientMode();
 	}
 }
 
@@ -52,6 +54,6 @@ void UCavrnusSceneCaptureMode::Back(const FInputActionValue& Value)
 {
 	if (const bool Input = Value.Get<bool>())
 	{
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusModeManager>()->PopTransientMode();
+		UCavrnusSubsystem::Get()->RuntimeContext->Get<UCavrnusModeManager>()->PopTransientMode();
 	}
 }

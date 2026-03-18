@@ -14,7 +14,8 @@ UCavrnusUITabHandler* UCavrnusUITabHandler::Register(const FString& InId, UCavrn
 		InWidget->SetVisibility(ESlateVisibility::Collapsed);
 
 	WidgetMap.Add(InId, InWidget);
-	
+	ButtonMap.Add(InId, InButton);
+
 	return this;
 }
 
@@ -26,20 +27,40 @@ UCavrnusUITabHandler* UCavrnusUITabHandler::Register(const FString& InId, UCavrn
 	return this;
 }
 
+UCavrnusUITabHandler* UCavrnusUITabHandler::SetAllowToggleOff(bool bAllow)
+{
+	bAllowToggleOff = bAllow;
+	return this;
+}
+
 UCavrnusUITabHandler* UCavrnusUITabHandler::SetActive(const FString& InId)
 {
 	if (!CurrentActiveId.IsEmpty())
 	{
-		if (const TWeakObjectPtr<UWidget>* FoundPtr = WidgetMap.Find(CurrentActiveId))
-			FoundPtr->Get()->SetVisibility(ESlateVisibility::Collapsed);
-
 		if (CurrentActiveId == InId)
 		{
+			if (!bAllowToggleOff)
+				return this;
+
+			if (const TWeakObjectPtr<UWidget>* FoundPtr = WidgetMap.Find(CurrentActiveId))
+				FoundPtr->Get()->SetVisibility(ESlateVisibility::Collapsed);
+
+			if (const TWeakObjectPtr<UCavrnusUIButton>* BtnPtr = ButtonMap.Find(CurrentActiveId))
+				if (BtnPtr->IsValid())
+					BtnPtr->Get()->SetSelected(false);
+
 			CurrentActiveId = "";
 			return this;
 		}
+
+		if (const TWeakObjectPtr<UWidget>* FoundPtr = WidgetMap.Find(CurrentActiveId))
+			FoundPtr->Get()->SetVisibility(ESlateVisibility::Collapsed);
+
+		if (const TWeakObjectPtr<UCavrnusUIButton>* BtnPtr = ButtonMap.Find(CurrentActiveId))
+			if (BtnPtr->IsValid())
+				BtnPtr->Get()->SetSelected(false);
 	}
-	
+
 	if (const TWeakObjectPtr<UWidget>* FoundPtr = WidgetMap.Find(InId))
 	{
 		if (FoundPtr && FoundPtr->IsValid())
@@ -48,7 +69,11 @@ UCavrnusUITabHandler* UCavrnusUITabHandler::SetActive(const FString& InId)
 			CurrentActiveId = InId;
 		}
 	}
-	
+
+	if (const TWeakObjectPtr<UCavrnusUIButton>* BtnPtr = ButtonMap.Find(InId))
+		if (BtnPtr->IsValid())
+			BtnPtr->Get()->SetSelected(true);
+
 	return this;
 }
 

@@ -1,21 +1,22 @@
-﻿// // Copyright (c) 2025 Cavrnus. All rights reserved.
+// // Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "UI/Systems/RawWidgetHost/CavrnusRawWidgetHost.h"
 
 #include "CavrnusConnectorModule.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 #include "UI/Systems/Displayers/CavrnusWidgetDisplayer.h"
 #include "UI/Systems/Scrims/CavrnusUIScrimSystem.h"
 #include "UI/Systems/Scrims/Types/CavrnusUIScrim.h"
 
-void UCavrnusRawWidgetHost::Initialize(UObject* InOuterObject, ICavrnusWidgetDisplayer* InDisplayer)
+void UCavrnusRawWidgetHost::Initialize(UObject* InOuterObject, ICavrnusWidgetDisplayer* InDisplayer, const UCavrnusUIArbiter* Arbiter)
 {
 	OuterObject = InOuterObject;
 	DisplayerObj = Cast<UObject>(InDisplayer);
 	Displayer = InDisplayer;
-	
-	VisDelegate = UCavrnusUI::Get()->Arbiter()->CurrentUIVisMode.Bind(this,[this](const EUIVisibilityMode Mode)
+
+	Arbiter->CurrentUIVisMode->Bind(this,[this](const EUIVisibilityMode Mode)
 	{
 		switch (Mode)
 		{
@@ -66,7 +67,7 @@ bool UCavrnusRawWidgetHost::Close(const UUserWidget* WidgetToClose)
 {
 	if (WidgetToClose == nullptr)
 	{
-		UE_LOG(LogTemp, Warning, TEXT("[UCavrnusRawWidgetHost::Close] WidgetToClose is null! Cannot close"))
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[UCavrnusRawWidgetHost::Close] WidgetToClose is null! Cannot close"))
 		return false;
 	}
 
@@ -113,8 +114,9 @@ void UCavrnusRawWidgetHost::SetVisibility(const bool bVis)
 	}
 }
 
-void UCavrnusRawWidgetHost::Teardown()
+void UCavrnusRawWidgetHost::Dispose()
 {
+	Super::Dispose();
 	Widgets.Empty();
-	UCavrnusUI::Get()->Arbiter()->CurrentUIVisMode.Unbind(VisDelegate);
+	Displayer = nullptr;
 }

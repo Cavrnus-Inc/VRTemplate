@@ -3,6 +3,7 @@
 #include "UI/Systems/Dialogs/CavrnusDialogSystem.h"
 
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Helpers/CavrnusWidgetFactory.h"
 #include "UI/Systems/AssetLookup/CavrnusWidgetBlueprintLookup.h"
 #include "UI/Systems/Dialogs/CavrnusBaseDialogWidget.h"
@@ -40,24 +41,17 @@ void UCavrnusDialogSystem::Close(UCavrnusBaseUserWidget* WidgetToClose)
 
 void UCavrnusDialogSystem::CloseAll()
 {
-	if (Dialogs.IsEmpty())
-	{
-		UE_LOG(LogTemp, Error, TEXT("[UCavrnusDialogSystem::CloseAll] There are currently no dialogs open!"))
-		return;
-	}
-
 	for (UCavrnusBaseDialogWidget* Dialog : Dialogs)
 		UCavrnusUI::Get(this)->Scrims()->Close(Dialog);
 
-	Displayer->RemoveAll();
-	
 	Dialogs.Empty();
 	DialogMap.Empty();
 }
 
-void UCavrnusDialogSystem::Teardown()
+void UCavrnusDialogSystem::Dispose()
 {
-	Displayer->RemoveAll();
+	CloseAll();
+	Displayer = nullptr;
 }
 
 UCavrnusBaseDialogWidget* UCavrnusDialogSystem::CreateInternal(const UClass* Type, const FCavrnusDialogOptions& Options)

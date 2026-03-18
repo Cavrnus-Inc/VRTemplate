@@ -22,10 +22,12 @@ void UCavrnusBaseToastMessageWidget::StartTimer(const float InDuration)
 
 void UCavrnusBaseToastMessageWidget::StopTimer()
 {
-	TimerActive = false;
-
-	if (ProgressBar)
+	// Only hide the progress bar if the auto-close timer was actually running.
+	// If the bar is showing manual progress (e.g. download/lifecycle), keep it visible.
+	if (TimerActive && ProgressBar)
 		ProgressBar->SetVisibility(ESlateVisibility::Hidden);
+
+	TimerActive = false;
 }
 
 void UCavrnusBaseToastMessageWidget::CloseWithDelay(const float Delay)
@@ -43,6 +45,22 @@ void UCavrnusBaseToastMessageWidget::CloseWithDelay(const float Delay)
 
 		World->GetTimerManager().SetTimer(CloseTimerHandle, TimerDel, Delay, false);
 	}
+}
+
+UCavrnusBaseToastMessageWidget* UCavrnusBaseToastMessageWidget::SetPrimaryText(const FString& InPrimaryText)
+{
+	if (PrimaryText)
+		PrimaryText->SetText(FText::FromString(InPrimaryText));
+
+	return this;
+}
+
+UCavrnusBaseToastMessageWidget* UCavrnusBaseToastMessageWidget::SetSecondaryText(const FString& InSecondaryText)
+{
+	if (SecondaryText)
+		SecondaryText->SetText(FText::FromString(InSecondaryText));
+
+	return this;
 }
 
 void UCavrnusBaseToastMessageWidget::NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent)

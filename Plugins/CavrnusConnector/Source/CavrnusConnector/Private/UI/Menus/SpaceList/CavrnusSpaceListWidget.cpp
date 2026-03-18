@@ -3,6 +3,7 @@
 #include "UI/Menus/SpaceList/CavrnusSpaceListWidget.h"
 #include "CavrnusFunctionLibrary.h"
 #include "UI/CavrnusUI.h"
+#include "UI/CavrnusUISystems.h"
 #include "UI/Systems/Dialogs/CavrnusDialogSystem.h"
 #include "UI/Systems/Dialogs/Types/CavrnusInputFieldDialog.h"
 #include "UI/Systems/Messages/CavrnusScopedMessages.h"

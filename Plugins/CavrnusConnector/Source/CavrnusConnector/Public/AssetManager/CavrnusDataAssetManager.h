@@ -4,14 +4,15 @@
 #include "UObject/NoExportTypes.h"
 #include "Engine/DataAsset.h"
 #include "AssetManager/CavrnusBaseDataAsset.h"
-#include "AssetManager/CavrnusDataAssetRegistry.h"
 #if WITH_EDITOR
-#include "AssetToolsModule.h"   // FAssetToolsModule
-#include "IAssetTools.h"        // IAssetTools interface
+#include "AssetToolsModule.h"
+#include "IAssetTools.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #endif
 #include "Managers/CavrnusService.h"
 #include "CavrnusDataAssetManager.generated.h"
+
+class UCavrnusMigrationManager;
 
 UCLASS()
 class CAVRNUSCONNECTOR_API UCavrnusDataAssetManager : public UCavrnusService
@@ -19,22 +20,7 @@ class CAVRNUSCONNECTOR_API UCavrnusDataAssetManager : public UCavrnusService
     GENERATED_BODY()
 
 public:
-    static UCavrnusDataAssetManager* Get(UObject* ReferenceObject)
-    {
-        UCavrnusDataAssetManager* Singleton = GetMutableDefault<UCavrnusDataAssetManager>();
-        static bool bInitialized = false;
-        if (!bInitialized)
-        {
-            Singleton->Initialize();
-            bInitialized = true;
-        }
-        return Singleton;
-    }
-
     virtual void Initialize() override;
-    void BuildOrUpdateRegistry();
-
-    void ScanAndPurgeTransientAssets();
 
     template<typename T>
     T* LoadAsset()
@@ -42,7 +28,7 @@ public:
         static_assert(TIsDerivedFrom<T, UCavrnusBaseDataAsset>::IsDerived, "T must derive from UCavrnusBaseDataAsset");
 
         UClass* TypeClass = T::StaticClass();
-        check(TypeClass); // Ensure StaticClass() is valid
+        check(TypeClass);
 
         if (UCavrnusBaseDataAsset* Found = LoadedAssets.FindRef(TypeClass))
         {
@@ -72,17 +58,14 @@ public:
         }
 
         LoadedAssets.Add(TypeClass, Loaded);
-        UE_LOG(LogTemp, Log, TEXT("Successfully loaded and cached asset %s: %p"), *TypeClass->GetName(), Loaded);
         return Loaded;
     }
-
 
     template<typename T>
     T* GetAsset() const
     {
         if (!LoadedAssets.Num())
         {
-            UE_LOG(LogTemp, Error, TEXT("LoadedAssets is empty or uninitialized"));
             return nullptr;
         }
         static_assert(TIsDerivedFrom<T, UCavrnusBaseDataAsset>::IsDerived, "T must derive from UCavrnusBaseDataAsset");
@@ -98,14 +81,9 @@ public:
 
     TArray<TSoftObjectPtr<UCavrnusBaseDataAsset>> GetSourceAssets(const FString& AssetPath) const;
 
-    void LoadRuntimeAssets();
-
-    void InitializeFromRegistry(UCavrnusDataAssetRegistry* Registry);
-
-    UCavrnusBaseDataAsset* EnsureAssetByClass(UClass* AssetClass, const FString& AssetPath);
-
 private:
     bool CheckUnrealVersionNewerThanEngine(const FString& PackageFilename);
+    bool CheckUnrealVersionCompatible(const FString& PackageFilename);
 
     UPROPERTY()
     TMap<UClass*, FString> AssetPaths;
@@ -114,11 +92,18 @@ private:
 
     FString SourceDataAssetPath = TEXT("/CavrnusConnector/SourceDataAssets");
     FString DestinationDataAssetPath = TEXT("/Game/Cavrnus/DataAssets");
-    static constexpr const TCHAR* RuntimeRegistryName = TEXT("RuntimeRegistry");
-    UPROPERTY()
-    TArray<TSoftObjectPtr<UCavrnusBaseDataAsset>> DiscoveredAssets;
+
     UCavrnusBaseDataAsset* CopyAssetIfMissing(UObject* SourceAsset, const FString& DestinationPath);
-
     bool SavePackageVersionSafe(UPackage* Package, UObject* Asset, const FString& PackageFilename);
-};
 
+    UPROPERTY()
+    UCavrnusMigrationManager* MigrationManager = nullptr;
+
+#if WITH_EDITOR
+    void CheckAndNotifyVersionUpdates();
+    void UpdateDataAsset(UCavrnusBaseDataAsset* SourceAsset, UCavrnusBaseDataAsset* ProjectCopy);
+    void BackupDataAsset(UCavrnusBaseDataAsset* Asset, int32 Version);
+
+    FString BackupDataAssetPath = TEXT("/Game/Cavrnus/DataAssetBackups");
+#endif
+};

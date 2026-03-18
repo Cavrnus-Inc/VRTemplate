@@ -28,6 +28,9 @@ namespace Cavrnus
 
 		void UnbindBinding(FString bindingId);
 
+		/** Remove a binding entry without invoking its unbind callback (for teardown of destroyed models). */
+		void RemoveBindingWithoutUnbind(const FString& bindingId);
+
 	private:
 		static CavrnusBindingModel* Instance;
 

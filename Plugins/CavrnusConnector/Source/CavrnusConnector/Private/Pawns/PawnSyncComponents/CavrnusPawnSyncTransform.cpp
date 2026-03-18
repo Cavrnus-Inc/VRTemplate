@@ -36,16 +36,22 @@ void UCavrnusPawnSyncTransform::InitializeMany(
 
 void UCavrnusPawnSyncTransform::Teardown()
 {
-	Super::Teardown();
+	if (bTornDown)
+		return;
 
 	for (const auto Target : SyncTargets)
-		Target.TargetComponent->TransformUpdated.Clear();
+	{
+		if (IsValid(Target.TargetComponent))
+			Target.TargetComponent->TransformUpdated.Clear();
+	}
 
 	if (IsValid(TransformUpdater))
 	{
 		TransformUpdater->Cancel();
 		TransformUpdater = nullptr;
 	}
+
+	Super::Teardown();
 }
 
 void UCavrnusPawnSyncTransform::HandleLocalSync(
@@ -54,12 +60,14 @@ void UCavrnusPawnSyncTransform::HandleLocalSync(
 	const FCavrnusUser& CavrnusUser)
 {
 	Super::HandleLocalSync(SpaceConnection, ContainerName, CavrnusUser);
-	
-	for (auto Target : SyncTargets)
+
+	for (int32 Idx = 0; Idx < SyncTargets.Num(); ++Idx)
 	{
+		FTransformSyncTarget& Target = SyncTargets[Idx];
+
 		if (!IsValid(Target.TargetComponent))
 		{
-			UE_LOG(LogCavrnusConnector, Warning, TEXT("[HandleLocalSync] SyncTarget for property %s is invalid"), *Target.PropertyName);
+			UE_LOG(LogCavrnusConnector, Warning, TEXT("[HandleLocalSync] SyncTarget[%d] for property '%s' has invalid TargetComponent -- skipping"), Idx, *Target.PropertyName);
 			continue;
 		}
 
@@ -69,37 +77,42 @@ void UCavrnusPawnSyncTransform::HandleLocalSync(
 			Target.PropertyName,
 			Target.TargetComponent->GetComponentTransform(),
 			FPropertyPostOptions());
-		
-		Target.TargetComponent->TransformUpdated.AddLambda([this, &Target](USceneComponent* SceneComponent, EUpdateTransformFlags, ETeleportType)
+
+		Target.TargetComponent->TransformUpdated.AddLambda([this, Idx](USceneComponent* SceneComponent, EUpdateTransformFlags, ETeleportType)
 			{
 				if (!IsValid(SceneComponent))
 				{
 					UE_LOG(LogCavrnusConnector, Warning, TEXT("SceneComponent is null!"));
 					return;
 				}
-					
+
 				if (!IsValid(TransformUpdater))
 				{
 					UE_LOG(LogCavrnusConnector, Warning, TEXT("TransformUpdater is null!"));
 					return;
 				}
 
+				if (!SyncTargets.IsValidIndex(Idx))
+					return;
+
+				FTransformSyncTarget& SyncTarget = SyncTargets[Idx];
+
 				const FTransform NewTransform = bIsRelativeTransform
 				                                ? SceneComponent->GetRelativeTransform()
 				                                : SceneComponent->GetComponentTransform();
 
 				const FTransform& LastTransform = bIsRelativeTransform
-				   ? Target.LastRelativeTransform
-				   : Target.LastWorldTransform;
+				   ? SyncTarget.LastRelativeTransform
+				   : SyncTarget.LastWorldTransform;
 
 				if (!FCavrnusMathHelpers::AreTransformsApproximatelyEqual(NewTransform, LastTransform))
 				{
 					TransformUpdater->UpdateWithNewData(NewTransform);
-					
+
 					if (bIsRelativeTransform)
-						Target.LastRelativeTransform = LastTransform;
+						SyncTarget.LastRelativeTransform = NewTransform;
 					else
-						Target.LastWorldTransform = LastTransform;
+						SyncTarget.LastWorldTransform = NewTransform;
 				}
 			});
 	}

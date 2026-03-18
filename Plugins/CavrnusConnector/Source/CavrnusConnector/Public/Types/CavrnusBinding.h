@@ -11,6 +11,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Core/Disposable.h"
 #include "GenericPlatform/GenericPlatformMisc.h"
 
 #include "CavrnusBinding.generated.h"		// Always last
@@ -26,12 +27,16 @@ namespace Cavrnus
  * The UCavrnusBinding class provides functionality to set up and unbind bindings within the Cavrnus system. It ensures that resources tied to bindings are properly released when no longer needed.
  */
 UCLASS(BlueprintType)
-class CAVRNUSCONNECTOR_API UCavrnusBinding : public UObject
+class CAVRNUSCONNECTOR_API UCavrnusBinding : public UObject, public IDisposable
 {
 	GENERATED_BODY()
 
 public:
-
+	virtual void Dispose() override
+	{
+		Unbind();
+	}
+	
 	/**
 	 * @brief Sets up a function to be called when the binding is unbound.
 	 *

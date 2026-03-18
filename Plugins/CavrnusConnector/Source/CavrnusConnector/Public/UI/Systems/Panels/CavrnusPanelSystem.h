@@ -8,17 +8,9 @@
 #include "UI/Systems/CavrnusUIArbiter.h"
 #include "UI/Systems/ContextData/UIContextData.h"
 #include "UI/Systems/Displayers/CavrnusWidgetDisplayer.h"
+#include "UI/Systems/Panels/CavrnusPanelLocation.h"
 #include "UObject/Object.h"
 #include "CavrnusPanelSystem.generated.h"
-
-UENUM(BlueprintType)
-enum class EPanelLocation : uint8
-{
-	LeftMiddle     UMETA(DisplayName = "Left Middle"),
-	RightMiddle    UMETA(DisplayName = "Right Middle"),
-	BottomMiddle   UMETA(DisplayName = "Bottom Middle"),
-	TopMiddle      UMETA(DisplayName = "Top Middle"),
-};
 
 USTRUCT()
 struct FCavrnusPanelOptions : public FCavrnusBaseDisplayOptions
@@ -36,11 +28,11 @@ struct FCavrnusPanelOptions : public FCavrnusBaseDisplayOptions
 };
 
 UCLASS()
-class CAVRNUSCONNECTOR_API UCavrnusPanelSystem : public UObject, public ICavrnusBaseUISystem
+class CAVRNUSCONNECTOR_API UCavrnusPanelSystem : public UDisposableUObject, public ICavrnusBaseUISystem
 {
 	GENERATED_BODY()
 public:
-	virtual void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer) override;
+	void Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer, UCavrnusUIArbiter* Arbiter);
 
 	template <typename TMessageType>
 	TMessageType* Create(const FCavrnusPanelOptions& Options = FCavrnusPanelOptions(), const FUIContextData& Data = FUIContextData())
@@ -50,7 +42,7 @@ public:
 
 	virtual void Close(UCavrnusBaseUserWidget* WidgetToClose) override;
 	virtual void CloseAll() override;
-	virtual void Teardown() override;
+	virtual void Dispose() override;
 
 private:
 	UPROPERTY()

@@ -16,7 +16,7 @@ const FCavrnusUIButtonStyleState& UCavrnusUIButtonStyle::GetStyleForState(const 
 	case ECavrnusButtonState::Focused:
 		return Focused;
 	case ECavrnusButtonState::Toggled:
-		return Focused;
+		return Toggled;
 	default:
 		return Normal;
 	}

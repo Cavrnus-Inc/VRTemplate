@@ -7,14 +7,14 @@
 #include "UI/Systems/CavrnusUIArbiter.h"
 #include "UI/Systems/AssetLookup/CavrnusWidgetBlueprintLookup.h"
 
-void UCavrnusPanelSystem::Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer)
+void UCavrnusPanelSystem::Initialize(UCavrnusWidgetBlueprintLookup* InLookup, ICavrnusWidgetDisplayer* InDisplayer, UCavrnusUIArbiter* Arbiter)
 {
 	LookupAsset = InLookup;
 	
 	DisplayerObj = Cast<UObject>(InDisplayer);
 	Displayer = InDisplayer;
 
-	VisDelegate = UCavrnusUI::Get()->Arbiter()->CurrentUIVisMode.Bind(this, [this](const EUIVisibilityMode& Mode)
+	Arbiter->CurrentUIVisMode->Bind(this, [this](const EUIVisibilityMode& Mode)
 	{
 		switch (Mode)
 		{
@@ -42,13 +42,23 @@ void UCavrnusPanelSystem::Close(UCavrnusBaseUserWidget* WidgetToClose)
 
 void UCavrnusPanelSystem::CloseAll()
 {
-	for (const TPair<FGuid, UCavrnusBasePanelWidget*> Panel : ActivePanels)
-		Close(Panel.Value);
+	// Collect all panels first to avoid modifying the map during iteration
+	TArray<UCavrnusBasePanelWidget*> PanelsToClose;
+	ActivePanels.GenerateValueArray(PanelsToClose);
+	
+	// Close each panel
+	for (UCavrnusBasePanelWidget* Panel : PanelsToClose)
+	{
+		if (IsValid(Panel))
+		{
+			Close(Panel);
+		}
+	}
 
 	ActivePanels.Empty();
 }
 
-void UCavrnusPanelSystem::Teardown()
+void UCavrnusPanelSystem::Dispose()
 {
 	CloseAll();
 	DisplayerObj = nullptr;

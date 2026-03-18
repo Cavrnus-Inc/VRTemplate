@@ -45,4 +45,6 @@ protected:
 
 		return nullptr;
 	}
+private:
+	void HandleLocalPlayerAdded(UWorld* World, ULocalPlayer* LocalPlayer, int32 Priority);
 };

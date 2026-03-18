@@ -2,6 +2,8 @@
 
 #include "CavrnusFunctionLibrary.h"
 #include "CavrnusConnectorModule.h"
+#include "CavrnusConnectorSettings.h"
+#include <Containers/Ticker.h>
 #include <Engine/Engine.h>
 #include <Engine/GameViewportClient.h>
 #include <GameFramework/PlayerController.h>
@@ -23,15 +25,22 @@
 #include "RelayModel\SpacePermissionsModel.h"
 #include "Translation\CavrnusProtoTranslation.h"
 
+#include "RestAPI/CavrnusRestApiClient.h"
 #include "RelayModel/CavrnusBindingModel.h"
-#include "SpawnObjectHelpers.h"
-#include "SpawnedObjectsManager.h"
+#include "Managers/SpawnedObjects/SpawnObjectHelpers.h"
+#include "Kismet/GameplayStatics.h"
+#include "Managers/SpawnedObjects/SpawnedObjectsManager.h"
+#include "Managers/SpawnedObjects/CavrnusPendingSpawnObject.h"
+#include "Managers/SpawnedObjects/CavrnusSpawnPropertyHelpers.h"
+#include "UObject/UnrealType.h"
 #include "CavrnusGCManager.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Contexts/CavrnusRuntimeContext.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 #include "Managers/Login/CavrnusLoginConfig.h"
 #include "Managers/Login/CavrnusLoginManager.h"
 #include "Pawns/CavrnusPawnManager.h"
 #include "UI/CavrnusUI.h"
+#include "Abstract/FileImporter/CavrnusLoaderRegistry_Abstract.h"
 
 #pragma region Authentication
 
@@ -49,21 +58,60 @@ void UCavrnusFunctionLibrary::EndForceKeepAlive()
 	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildEndForceKeepAlive());
 }
 
-bool UCavrnusFunctionLibrary::HasLiveUiFlowManager = false;
 FDelegateHandle UCavrnusFunctionLibrary::UiFlowTeardownHandle;
 
 
 void UCavrnusFunctionLibrary::SetupUiFlowManager(const FCavrnusLoginConfig& LoginConfig)
 {
-	if (HasLiveUiFlowManager)
+	UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+	if (!Subsystem || !Subsystem->IsRuntimeContextReady())
 	{
-		UE_LOG(LogCavrnusConnector, Warning, TEXT("A UI Flow Manager is already running."))
+		UE_LOG(LogCavrnusConnector, Error, TEXT("[SetupUiFlowManager] RuntimeContext not ready"));
 		return;
 	}
 
-	HasLiveUiFlowManager = true;
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusLoginManager>()->DoLogin("runtime", LoginConfig);
+	UCavrnusLoginManager* LoginManager = Subsystem->RuntimeContext->Get<UCavrnusLoginManager>();
+	if (!LoginManager)
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("[SetupUiFlowManager] LoginManager not available"));
+		return;
+	}
+
+	if (LoginManager->HasLoginBeenInitiated())
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[SetupUiFlowManager] Login has already been initiated."))
+		return;
+	}
+
+	LoginManager->DoLogin(LoginConfig);
 }
+
+void UCavrnusFunctionLibrary::CavrnusLogin()
+{
+	FCavrnusLoginConfig Config = FCavrnusLoginConfig::FromPluginSettings();
+	SetupUiFlowManager(Config);
+}
+
+void UCavrnusFunctionLibrary::CavrnusLoginAsMember(const FString& Server, const FString& Email, const FString& Password, const FString& SpaceId)
+{
+	FCavrnusLoginConfig Config = FCavrnusLoginConfig::ForMember(Server, Email, Password, SpaceId);
+	SetupUiFlowManager(Config);
+}
+
+void UCavrnusFunctionLibrary::CavrnusLoginAsGuest(const FString& Server, const FString& GuestName, const FString& SpaceId)
+{
+	FCavrnusLoginConfig Config = FCavrnusLoginConfig::ForGuest(Server, GuestName, SpaceId);
+	SetupUiFlowManager(Config);
+}
+
+void UCavrnusFunctionLibrary::CavrnusLoginAllowBoth(const FString& Server, const FString& SpaceId, ECavrnusPreferredLoginTab PreferredTab, const FString& MemberEmail, const FString& MemberPassword, const FString& GuestName)
+{
+	UCavrnusConnectorSettings::Get()->PreferredLoginTab = PreferredTab;
+	FCavrnusLoginConfig Config = FCavrnusLoginConfig::ForAllowBoth(Server, SpaceId, GuestName, MemberEmail, MemberPassword);
+	SetupUiFlowManager(Config);
+}
+
+// --- Deprecated functions (still functional) ---
 
 void UCavrnusFunctionLibrary::CavrnusLoginMemberFlow(const FString& OptionalServer)
 {
@@ -108,36 +156,205 @@ void UCavrnusFunctionLibrary::CavrnusLoginGuestFlowWithConfig(const FString& Opt
 
 void UCavrnusFunctionLibrary::CavrnusLoginGlobalSettingsFlow()
 {
-	HasLiveUiFlowManager = true;
-	UCavrnusSubsystem::Get()->Services->Get<UCavrnusLoginManager>()->DoPluginSettingsLogin();
+	UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+	if (!Subsystem || !Subsystem->IsRuntimeContextReady())
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("CavrnusLoginGlobalSettingsFlow - RuntimeContext not ready"));
+		return;
+	}
+
+	UCavrnusLoginManager* LoginManager = Subsystem->RuntimeContext->Get<UCavrnusLoginManager>();
+	if (!LoginManager)
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("CavrnusLoginGlobalSettingsFlow - LoginManager not available"));
+		return;
+	}
+
+	LoginManager->DoPluginSettingsLogin();
 }
 
 bool UCavrnusFunctionLibrary::HooksSetUp = false;
+static bool bSpaceJoinBound = false;
 
 void UCavrnusFunctionLibrary::SetupCavrnusEventHooks()
 {
+	// Always register the shutdown hook first — it only needs FWorldDelegates,
+	// not the viewport.  This ensures KillDataModel runs even when the viewport
+	// isn't ready yet (e.g. early PIE frames).
+	UCavrnusFunctionLibrary::HookCavrnusShutdown();
+
+	// BindSpaceJoin doesn't need the viewport — register it once, early, so
+	// pawn management and user callbacks work even when viewport is deferred.
+	if (!bSpaceJoinBound)
+	{
+		BindSpaceJoin();
+		bSpaceJoinBound = true;
+	}
+
 	if (HooksSetUp)
 	{
-		UE_LOG(LogCavrnusConnector, Warning, TEXT("Event hooks have already been established for Cavrnus.  This only needs to happen once."));
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("Event hooks have already been established for Cavrnus. This only needs to happen once."));
 		return;
 	}
+
+	if (!GEngine)
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("SetupCavrnusEventHooks aborted: GEngine is null."));
+		return;
+	}
+
+	UGameViewportClient* Viewport = GEngine->GameViewport;
+	if (!Viewport)
+	{
+		UE_LOG(LogCavrnusConnector, Verbose, TEXT("SetupCavrnusEventHooks: GameViewport not yet available -- deferring object hooks until viewport is ready."));
+		FTSTicker::GetCoreTicker().AddTicker(
+			FTickerDelegate::CreateLambda([](float) -> bool
+			{
+				if (GEngine && GEngine->GameViewport)
+				{
+					SetupCavrnusEventHooks();
+					return false; // stop ticking
+				}
+				return true; // keep ticking
+			}), 0.0f);
+		return;
+	}
+
 	HooksSetUp = true;
 
-	TFunction<AActor* (FCavrnusSpawnedObject, FString)> onObjectCreation = [](const FCavrnusSpawnedObject& ob, FString uniqueId)
+	auto GetSafeWorld = [Viewport]() -> UWorld*
 		{
-			return SpawnedObjectsManager::GetSpawnedObjectsManager()->RegisterSpawnedObject(ob, uniqueId, GEngine->GameViewport->GetWorld());
+			return Viewport ? Viewport->GetWorld() : nullptr;
 		};
-	Cavrnus::CavrnusRelayModel::GetDataModel()->RegisterObjectCreationCallback(onObjectCreation);
 
-	TFunction<void(FCavrnusSpawnedObject)> onObjectDestruction = [](const FCavrnusSpawnedObject& ob)
+	// Creation callback: try loader (async) first, fall back to new spawn system
+	TFunction<AActor* (FCavrnusSpawnedObject, FString)> OnObjectCreation =
+		[GetSafeWorld](const FCavrnusSpawnedObject& Ob, const FString& UniqueId) -> AActor*
+	{
+		UWorld* World = GetSafeWorld();
+		if (!World)
 		{
-			SpawnedObjectsManager::GetSpawnedObjectsManager()->UnregisterSpawnedObject(ob, GEngine->GameViewport->GetWorld());
+			UE_LOG(LogCavrnusConnector, Error, TEXT("OnObjectCreation: world is null, cannot handle object %s."), *UniqueId);
+			return nullptr;
+		}
+
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("OnObjectCreation: received id=%s"), *UniqueId);
+
+		// Check if this object already exists in SpawnedObjects (prevents duplicates)
+		// This handles the case where CavrnusSpawnActorById already created a pending spawn
+		Cavrnus::SpacePropertyModel* PropertyModel = 
+			Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(Ob.SpaceConnection);
+		if (PropertyModel && PropertyModel->SpawnedObjects.Contains(Ob.PropertiesContainerName))
+		{
+			UE_LOG(LogCavrnusConnector, Log, TEXT("OnObjectCreation: Object %s already exists in SpawnedObjects, skipping duplicate creation"), *Ob.PropertiesContainerName);
+			return nullptr; // Already handled
+		}
+
+		UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+		if (!Subsystem || !Subsystem->IsRuntimeContextReady())
+		{
+			UE_LOG(LogCavrnusConnector, Error, TEXT("OnObjectCreation: RuntimeContext not ready"));
+			return nullptr;
+		}
+		
+		USpawnedObjectsManager* Manager = Subsystem->RuntimeContext->Get<USpawnedObjectsManager>();
+		if (!Manager)
+		{
+			UE_LOG(LogCavrnusConnector, Error, TEXT("OnObjectCreation: SpawnedObjectsManager is invalid"));
+			return nullptr;
+		}
+
+		// Try async loader via registry first
+		UCavrnusBaseLoader_Abstract* CandidateLoader =
+			FCavrnusLoaderRegistry_Abstract::Get().CreateMatchingLoader(UniqueId, GetTransientPackage());
+		if (CandidateLoader)
+		{
+			UE_LOG(LogCavrnusConnector, Log, TEXT("OnObjectCreation: dispatching async loader %s for id %s"), *CandidateLoader->GetClass()->GetName(), *UniqueId);
+			if (Manager)
+			{
+				Manager->RegisterSpawnedObjectAsync(Ob, UniqueId, World);
+			}
+			return nullptr; // Async path: no actor is available synchronously
+		}
+
+		// No loader found -> try new DataAsset-based spawn system
+		TSubclassOf<AActor> ActorClass = nullptr;
+		UStaticMesh* StaticMesh = nullptr; // Unused, kept for function signature compatibility
+		TSubclassOf<UObject> ObjectClass = nullptr;
+		
+		// Check for Actor class (matching Unreal Engine's SpawnActor - only AActor classes)
+		if (Manager->FindSpawnableClassOrMesh(UniqueId, nullptr, ActorClass, StaticMesh))
+		{
+			if (ActorClass)
+			{
+				// Use new pending spawn system for Actors
+				ESpawnActorCollisionHandlingMethod CollisionHandling = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				UCavrnusPendingSpawnObject* PendingSpawn = Manager->CreatePendingSpawnObjectWithActorClass(Ob, UniqueId, ActorClass, CollisionHandling);
+				
+				if (PendingSpawn)
+				{
+					PendingSpawn->Initialize();
+					return nullptr; // Pending spawn, no actor yet
+				}
+			}
+		}
+		// Check for UObject class (for ConstructObjectFromClass)
+		else if (Manager->FindSpawnableObjectClass(UniqueId, nullptr, ObjectClass))
+		{
+			// Use new pending construct system for UObjects
+			UCavrnusPendingSpawnObject* PendingSpawn = Manager->CreatePendingConstructObject(Ob, UniqueId, ObjectClass);
+			
+			if (PendingSpawn)
+			{
+				PendingSpawn->Initialize();
+				return nullptr; // Pending construct, no object yet
+			}
+		}
+
+		// Fall back to old system for backwards compatibility
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("OnObjectCreation: no loader or DataAsset entry for %s, falling back to old spawn system."), *UniqueId);
+		if (Manager)
+		{
+			return Manager->RegisterSpawnedObject(Ob, UniqueId, World);
+		}
+		UE_LOG(LogCavrnusConnector, Error, TEXT("OnObjectCreation: Manager not available for fallback"));
+		return nullptr;
+	};
+
+	Cavrnus::CavrnusRelayModel::GetDataModel()->RegisterObjectCreationCallback(OnObjectCreation);
+
+	// Object destruction callback remains synchronous
+	TFunction<void(FCavrnusSpawnedObject)> OnObjectDestruction =
+		[GetSafeWorld](const FCavrnusSpawnedObject& Ob)
+		{
+			UWorld* World = GetSafeWorld();
+			if (!World)
+			{
+				UE_LOG(LogCavrnusConnector, Warning, TEXT("OnObjectDestruction: world is null, unable to unregister object %s."), *Ob.PropertiesContainerName);
+				return;
+			}
+
+			UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+			if (!Subsystem || !Subsystem->IsRuntimeContextReady())
+			{
+				UE_LOG(LogCavrnusConnector, Warning, TEXT("OnObjectDestruction: RuntimeContext not ready, unable to unregister object %s."), *Ob.PropertiesContainerName);
+				return;
+			}
+
+			USpawnedObjectsManager* Manager = Subsystem->RuntimeContext->Get<USpawnedObjectsManager>();
+			if (Manager)
+			{
+				Manager->UnregisterSpawnedObject(Ob, World);
+			}
+			else
+			{
+				UE_LOG(LogCavrnusConnector, Error, TEXT("OnObjectDestruction: SpawnedObjectsManager not available"));
+			}
 		};
-	Cavrnus::CavrnusRelayModel::GetDataModel()->RegisterObjectDestructionCallback(onObjectDestruction);
 
-	BindSpaceJoin();
+	Cavrnus::CavrnusRelayModel::GetDataModel()->RegisterObjectDestructionCallback(OnObjectDestruction);
 
-	UCavrnusFunctionLibrary::HookCavrnusShutdown();
+	UE_LOG(LogCavrnusConnector, Log, TEXT("Cavrnus event hooks set up successfully (async-first)."));
 }
 
 bool UCavrnusFunctionLibrary::IsLoggedIn()
@@ -203,6 +420,7 @@ void UCavrnusFunctionLibrary::AuthenticateAsGuest(const FString& Server, const F
 
 void UCavrnusFunctionLibrary::AuthenticateAsGuest(const FString& Server, const FString& UserName, CavrnusAuthRecv OnSuccess, CavrnusError OnFailure)
 {
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->bAuthenticatedAsGuest = true;
 	int RequestId = Cavrnus::CavrnusRelayModel::GetDataModel()->GetCallbackModel()->RegisterAuthenticationCallback(OnSuccess, OnFailure);
 	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildAuthenticateGuest(RequestId, Server, UserName));
 }
@@ -297,6 +515,94 @@ void UCavrnusFunctionLibrary::AwaitAuthentication(CavrnusAuthRecv OnAuth)
 	Cavrnus::CavrnusRelayModel::GetDataModel()->GetCallbackModel()->RegisterAuthCallback(OnAuth);
 }
 
+static void TryLoadLevel(const TSoftObjectPtr<UWorld>& Level);
+
+static void DeauthenticateInternal(TSoftObjectPtr<UWorld> LevelToLoad)
+{
+	// Exit all active spaces
+	if (Cavrnus::CavrnusRelayModel::IsAlive())
+	{
+		TArray<FCavrnusSpaceConnectionInfo> SpaceConnections = UCavrnusFunctionLibrary::GetCurrentSpaceConnections();
+		for (const FCavrnusSpaceConnectionInfo& ConnInfo : SpaceConnections)
+		{
+			UCavrnusFunctionLibrary::ExitSpace(FCavrnusSpaceConnection(ConnInfo.SpaceConnectionId));
+		}
+	}
+
+	// Kill the relay connection — a fresh login will re-create it
+	Cavrnus::CavrnusRelayModel::KillDataModel();
+
+	// Reset the login manager so a new login flow can be initiated
+	if (UCavrnusSubsystem* Sub = UCavrnusSubsystem::Get())
+	{
+		if (Sub->IsRuntimeContextReady())
+		{
+			if (UCavrnusLoginManager* LoginManager = Sub->RuntimeContext->Get<UCavrnusLoginManager>())
+			{
+				LoginManager->ResetLoginState();
+			}
+		}
+	}
+
+	// Clear pawn spawners while the world is still alive (before any level load tears it down)
+	if (UCavrnusSubsystem* PawnSub = UCavrnusSubsystem::Get())
+	{
+		if (PawnSub->IsRuntimeContextReady())
+		{
+			if (UCavrnusPawnManager* PawnManager = PawnSub->RuntimeContext->Get<UCavrnusPawnManager>())
+				PawnManager->Clear();
+		}
+	}
+
+	UE_LOG(LogCavrnusConnector, Log, TEXT("[UCavrnusFunctionLibrary::Deauthenticate] Exited all spaces, killed relay, reset login state. Fresh login required."));
+
+	// Resolve level to load: parameter > setting > none
+	TSoftObjectPtr<UWorld> ResolvedLevel = LevelToLoad;
+	if (ResolvedLevel.IsNull())
+	{
+		if (const auto* Settings = UCavrnusConnectorSettings::Get())
+		{
+			if (Settings->bLoadLevelOnDeauthenticate)
+				ResolvedLevel = Settings->DeauthenticateLevel;
+		}
+	}
+
+	TryLoadLevel(ResolvedLevel);
+}
+
+UCavrnusConnectorSettings* UCavrnusFunctionLibrary::GetCavrnusSettings()
+{
+	return UCavrnusConnectorSettings::Get();
+}
+
+void UCavrnusFunctionLibrary::SetSpaceExitLevel(bool bEnabled, TSoftObjectPtr<UWorld> Level)
+{
+	UCavrnusConnectorSettings* Settings = UCavrnusConnectorSettings::Get();
+	if (!Settings) return;
+
+	Settings->bLoadLevelOnSpaceExit = bEnabled;
+	Settings->SpaceExitLevel = Level;
+}
+
+void UCavrnusFunctionLibrary::SetDeauthenticateLevel(bool bEnabled, TSoftObjectPtr<UWorld> Level)
+{
+	UCavrnusConnectorSettings* Settings = UCavrnusConnectorSettings::Get();
+	if (!Settings) return;
+
+	Settings->bLoadLevelOnDeauthenticate = bEnabled;
+	Settings->DeauthenticateLevel = Level;
+}
+
+void UCavrnusFunctionLibrary::Deauthenticate()
+{
+	DeauthenticateInternal(nullptr);
+}
+
+void UCavrnusFunctionLibrary::Deauthenticate(TSoftObjectPtr<UWorld> LevelToLoad)
+{
+	DeauthenticateInternal(LevelToLoad);
+}
+
 void UCavrnusFunctionLibrary::CheckServerStatus(const FString& Server, FCavrnusServerStatusRecv OnStatus)
 {
 	CavrnusServerStatusRecv callback = [OnStatus](const FCavrnusServerStatus& val)
@@ -373,6 +679,22 @@ UCavrnusBinding* UCavrnusFunctionLibrary::BindJoinableSpaces(FCavrnusSpaceInfoEv
 UCavrnusBinding* UCavrnusFunctionLibrary::BindJoinableSpaces(CavrnusSpaceInfoEvent SpaceAdded, CavrnusSpaceInfoEvent SpaceUpdated, CavrnusSpaceInfoEvent SpaceRemoved)
 {
 	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->BindJoinableSpaces(SpaceAdded, SpaceUpdated, SpaceRemoved);
+}
+
+UCavrnusBinding* UCavrnusFunctionLibrary::BindSpaceInfoChanged(int32 ChangeMask, FCavrnusSpaceInfoChangedDelegate OnChanged)
+{
+	ESpaceInfoChangeFlags mask = static_cast<ESpaceInfoChangeFlags>(ChangeMask);
+	CavrnusSpaceInfoChangedEvent callback = [OnChanged](const FCavrnusSpaceInfo& spaceInfo, ESpaceInfoChangeFlags changedFlags)
+	{
+		OnChanged.ExecuteIfBound(spaceInfo, static_cast<int32>(changedFlags));
+	};
+
+	return BindSpaceInfoChanged(mask, callback);
+}
+
+UCavrnusBinding* UCavrnusFunctionLibrary::BindSpaceInfoChanged(ESpaceInfoChangeFlags ChangeMask, CavrnusSpaceInfoChangedEvent OnChanged)
+{
+	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->BindSpaceInfoChanged(ChangeMask, OnChanged);
 }
 
 bool UCavrnusFunctionLibrary::IsConnectedToAnySpace()
@@ -682,10 +1004,59 @@ void UCavrnusFunctionLibrary::AwaitAnySpaceConnection(CavrnusSpaceConnected OnCo
 	Cavrnus::CavrnusRelayModel::GetDataModel()->GetDataState()->AwaitAnySpaceConnection(OnConnected);
 }
 
+static void TryLoadLevel(const TSoftObjectPtr<UWorld>& Level)
+{
+	if (Level.IsNull())
+		return;
+
+	const FString LevelName = Level.GetLongPackageName();
+	if (LevelName.IsEmpty())
+		return;
+
+	UWorld* World = GEngine && GEngine->GameViewport ? GEngine->GameViewport->GetWorld() : nullptr;
+	if (World)
+	{
+		UE_LOG(LogCavrnusConnector, Log, TEXT("[Cavrnus] Loading level '%s' after space exit"), *LevelName);
+		UGameplayStatics::OpenLevel(World, FName(*LevelName));
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Warning, TEXT("[Cavrnus] Cannot load level '%s' — no valid world context"), *LevelName);
+	}
+}
+
+static void RequestLevelLoadOnSpaceExit(TSoftObjectPtr<UWorld> Level)
+{
+	UCavrnusFunctionLibrary::AwaitAnySpaceExited([Level]()
+	{
+		TryLoadLevel(Level);
+	});
+}
+
 void UCavrnusFunctionLibrary::ExitSpace(FCavrnusSpaceConnection SpaceConnection)
 {
 	CheckErrors(SpaceConnection);
 	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildExitSpaceMsg(SpaceConnection));
+
+	if (const auto* Settings = UCavrnusConnectorSettings::Get())
+	{
+		if (Settings->bLoadLevelOnSpaceExit && !Settings->SpaceExitLevel.IsNull())
+			RequestLevelLoadOnSpaceExit(Settings->SpaceExitLevel);
+	}
+}
+
+void UCavrnusFunctionLibrary::ExitSpace(FCavrnusSpaceConnection SpaceConnection, TSoftObjectPtr<UWorld> LevelToLoad)
+{
+	CheckErrors(SpaceConnection);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildExitSpaceMsg(SpaceConnection));
+
+	if (!LevelToLoad.IsNull())
+		RequestLevelLoadOnSpaceExit(LevelToLoad);
+	else if (const auto* Settings = UCavrnusConnectorSettings::Get())
+	{
+		if (Settings->bLoadLevelOnSpaceExit && !Settings->SpaceExitLevel.IsNull())
+			RequestLevelLoadOnSpaceExit(Settings->SpaceExitLevel);
+	}
 }
 
 void UCavrnusFunctionLibrary::AwaitAnySpaceExited(FCavrnusSpaceExited OnExit)
@@ -738,6 +1109,37 @@ UCavrnusBinding* UCavrnusFunctionLibrary::BindGenericPropertyValue(FCavrnusSpace
 	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->BindProperty(FAbsolutePropertyId(ContainerName, PropertyName), OnPropertyUpdated);
 }
 
+static FString PropTypeToString(Cavrnus::FPropertyValue::PropertyType Type)
+{
+	switch (Type)
+	{
+	case Cavrnus::FPropertyValue::PropertyType::String:    return TEXT("String");
+	case Cavrnus::FPropertyValue::PropertyType::Bool:      return TEXT("Bool");
+	case Cavrnus::FPropertyValue::PropertyType::Float:     return TEXT("Float");
+	case Cavrnus::FPropertyValue::PropertyType::Color:     return TEXT("Color");
+	case Cavrnus::FPropertyValue::PropertyType::Vector:    return TEXT("Vector");
+	case Cavrnus::FPropertyValue::PropertyType::Transform: return TEXT("Transform");
+	default:                                               return TEXT("Unset");
+	}
+}
+
+UCavrnusBinding* UCavrnusFunctionLibrary::BindContainerPropertyValues(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, FContainerPropertyUpdated PropertyUpdateEvent, bool bNewOnly)
+{
+	CavrnusPropertyFunction propUpdateCallback = [PropertyUpdateEvent](const Cavrnus::FPropertyValue& Prop, const FString& ContainerName, const FString& PropertyName)
+	{
+		PropertyUpdateEvent.ExecuteIfBound(PropTypeToString(Prop.PropType), Prop.ToString(), ContainerName, PropertyName);
+	};
+
+	return BindContainerPropertyValues(SpaceConnection, FPropertiesContainer(ContainerName), propUpdateCallback, bNewOnly);
+}
+
+UCavrnusBinding* UCavrnusFunctionLibrary::BindContainerPropertyValues(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const CavrnusPropertyFunction& OnPropertyUpdated, bool bNewOnly)
+{
+	CheckErrors(SpaceConnection);
+
+	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->BindContainerProperties(ContainerName.ContainerName, OnPropertyUpdated, !bNewOnly);
+}
+
 UCavrnusLivePropertyUpdate* UCavrnusFunctionLibrary::BeginTransientGenericPropertyUpdate(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, Cavrnus::FPropertyValue PropertyValue)
 {
 	CheckErrors(SpaceConnection);
@@ -771,6 +1173,11 @@ void UCavrnusFunctionLibrary::PostGenericPropertyUpdate(FCavrnusSpaceConnection 
 }
 
 bool UCavrnusFunctionLibrary::PropertyValueExists(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName)
+{
+	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->PropValueExists(FAbsolutePropertyId(ContainerName, PropertyName));
+}
+
+bool UCavrnusFunctionLibrary::PropertyValueExists(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName)
 {
 	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->PropValueExists(FAbsolutePropertyId(ContainerName, PropertyName));
 }
@@ -1222,40 +1629,116 @@ void UCavrnusFunctionLibrary::PostTransformPropertyUpdate(FCavrnusSpaceConnectio
 
 #pragma endregion
 
+#pragma region Property Definitions
+
+void UCavrnusFunctionLibrary::DefineStringPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusStringPropertyDefinition Definition)
+{
+	DefineStringPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineStringPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusStringPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineStringPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+void UCavrnusFunctionLibrary::DefineFloatPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusFloatPropertyDefinition Definition)
+{
+	DefineFloatPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineFloatPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusFloatPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineFloatPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+void UCavrnusFunctionLibrary::DefineColorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusColorPropertyDefinition Definition)
+{
+	DefineColorPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineColorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusColorPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineColorPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+void UCavrnusFunctionLibrary::DefineBoolPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusBoolPropertyDefinition Definition)
+{
+	DefineBoolPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineBoolPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusBoolPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineBoolPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+void UCavrnusFunctionLibrary::DefineVectorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusVectorPropertyDefinition Definition)
+{
+	DefineVectorPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineVectorPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusVectorPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineVectorPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+void UCavrnusFunctionLibrary::DefineTransformPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FString& ContainerName, const FString& PropertyName, FCavrnusTransformPropertyDefinition Definition)
+{
+	DefineTransformPropertyDefinition(SpaceConnection, FPropertiesContainer(ContainerName), PropertyName, Definition);
+}
+
+void UCavrnusFunctionLibrary::DefineTransformPropertyDefinition(FCavrnusSpaceConnection SpaceConnection, const FPropertiesContainer& ContainerName, const FString& PropertyName, const FCavrnusTransformPropertyDefinition& Definition)
+{
+	FAbsolutePropertyId AbsolutePropertyId(ContainerName, PropertyName);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SetPropertyDefinition(AbsolutePropertyId, Definition.Metadata);
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildDefineTransformPropertyDefinitionMsg(SpaceConnection, AbsolutePropertyId, Definition));
+}
+
+#pragma endregion
+
 #pragma region Permissions
 
-UPARAM(DisplayName = "Disposable")UCavrnusBinding* UCavrnusFunctionLibrary::BindGlobalPolicy(const FString& Policy, FCavrnusPolicyUpdated OnPolicyUpdated)
+UPARAM(DisplayName = "Disposable")UCavrnusBinding* UCavrnusFunctionLibrary::BindPolicyActionPermitted(const FString& Action, FCavrnusPolicyUpdated OnPolicyUpdated)
 {
-	CavrnusPolicyUpdated callback = [OnPolicyUpdated](const FString& policy, bool allowed)
+	CavrnusPolicyUpdated callback = [OnPolicyUpdated](const FString& action, bool allowed)
 	{
-		OnPolicyUpdated.ExecuteIfBound(policy, allowed);
+		OnPolicyUpdated.ExecuteIfBound(action, allowed);
 	};
 
-	return BindGlobalPolicy(Policy, callback);
+	return BindPolicyActionPermitted(Action, callback);
 }
 
-UCavrnusBinding* UCavrnusFunctionLibrary::BindGlobalPolicy(FString Policy, CavrnusPolicyUpdated OnPolicyUpdated)
+UCavrnusBinding* UCavrnusFunctionLibrary::BindPolicyActionPermitted(FString Action, CavrnusPolicyUpdated OnPolicyUpdated)
 {
-	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildRequestGlobalPermission(Policy));
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildRequestGlobalPermission(Action));
 
-	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetGlobalPermissionsModel()->BindPolicyAllowed(Policy, OnPolicyUpdated);
+	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetGlobalPermissionsModel()->BindPolicyAllowed(Action, OnPolicyUpdated);
 }
 
-UPARAM(DisplayName = "Disposable")UCavrnusBinding* UCavrnusFunctionLibrary::BindSpacePolicy(FCavrnusSpaceConnection SpaceConnection, const FString& Policy, FCavrnusPolicyUpdated OnPolicyUpdated)
+UPARAM(DisplayName = "Disposable")UCavrnusBinding* UCavrnusFunctionLibrary::BindSpacePolicyActionPermitted(FCavrnusSpaceConnection SpaceConnection, const FString& Action, FCavrnusPolicyUpdated OnPolicyUpdated)
 {
-	CavrnusPolicyUpdated callback = [OnPolicyUpdated](const FString& policy, bool allowed)
+	CavrnusPolicyUpdated callback = [OnPolicyUpdated](const FString& action, bool allowed)
 	{
-		OnPolicyUpdated.ExecuteIfBound(policy, allowed);
+		OnPolicyUpdated.ExecuteIfBound(action, allowed);
 	};
 
-	return BindSpacePolicy(SpaceConnection, Policy, callback);
+	return BindSpacePolicyActionPermitted(SpaceConnection, Action, callback);
 }
 
-UCavrnusBinding* UCavrnusFunctionLibrary::BindSpacePolicy(FCavrnusSpaceConnection SpaceConnection, const FString& Policy, CavrnusPolicyUpdated OnPolicyUpdated)
+UCavrnusBinding* UCavrnusFunctionLibrary::BindSpacePolicyActionPermitted(FCavrnusSpaceConnection SpaceConnection, const FString& Action, CavrnusPolicyUpdated OnPolicyUpdated)
 {
-	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildRequestSpacePermission(SpaceConnection, Policy));
+	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildRequestSpacePermission(SpaceConnection, Action));
 
-	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePermissionsModel(SpaceConnection)->BindPolicyAllowed(Policy, OnPolicyUpdated);
+	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePermissionsModel(SpaceConnection)->BindPolicyAllowed(Action, OnPolicyUpdated);
 }
 
 #pragma endregion
@@ -1269,12 +1752,9 @@ const FCavrnusSpawnedObject& UCavrnusFunctionLibrary::SpawnObject(FCavrnusSpaceC
 
 	FString InstanceId = Cavrnus::CavrnusProtoTranslation::CreateTransientId();
 
-	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildCreateOp(SpaceConnection, UniqueIdentifier, InstanceId));
+	// Use the new helper function instead of direct protobuf calls
+	USpawnedObjectsManager::CreateAndRegisterObject(SpaceConnection, UniqueIdentifier, InstanceId);
 
-	//CavrnusSpawnedObjectFunction* CallbackPtr = new CavrnusSpawnedObjectFunction(spawnedObjectArrived);
-	//Cavrnus::CavrnusRelayModel::GetDataModel()->ObjectCreationCallbacks.Add(FAbsolutePropertyId(InstanceId), CallbackPtr);
-
-	Cavrnus::CavrnusRelayModel::GetDataModel()->HandleSpaceObjectAdded(Cavrnus::CavrnusProtoTranslation::BuildObjectAdded(SpaceConnection, UniqueIdentifier, InstanceId));
 	return Cavrnus::CavrnusRelayModel::GetDataModel()->GetSpacePropertyModel(SpaceConnection)->SpawnedObjects[InstanceId];
 }
 
@@ -1288,12 +1768,42 @@ void UCavrnusFunctionLibrary::DestroyObject(const FCavrnusSpawnedObject& Spawned
 
 void UCavrnusFunctionLibrary::RegisterSpawnableObjectType(const FString& Identifier, TSubclassOf<AActor> ClassType)
 {
-	SpawnedObjectsManager::GetSpawnedObjectsManager()->RegisterSpawnableObjectType(Identifier, ClassType);
+	UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+	if (!Subsystem || !Subsystem->IsRuntimeContextReady())
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("RegisterSpawnableObjectType - RuntimeContext not ready"));
+		return;
+	}
+
+	USpawnedObjectsManager* Manager = Subsystem->RuntimeContext->Get<USpawnedObjectsManager>();
+	if (Manager)
+	{
+		Manager->RegisterSpawnableObjectType(Identifier, ClassType);
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("RegisterSpawnableObjectType - SpawnedObjectsManager not available"));
+	}
 }
 
 void UCavrnusFunctionLibrary::UnregisterSpawnableObjectType(const FString& Identifier)
 {
-	SpawnedObjectsManager::GetSpawnedObjectsManager()->UnregisterSpawnableObjectType(Identifier);
+	UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+	if (!Subsystem || !Subsystem->IsRuntimeContextReady())
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("UnregisterSpawnableObjectType - RuntimeContext not ready"));
+		return;
+	}
+
+	USpawnedObjectsManager* Manager = Subsystem->RuntimeContext->Get<USpawnedObjectsManager>();
+	if (Manager)
+	{
+		Manager->UnregisterSpawnableObjectType(Identifier);
+	}
+	else
+	{
+		UE_LOG(LogCavrnusConnector, Error, TEXT("UnregisterSpawnableObjectType - SpawnedObjectsManager not available"));
+	}
 }
 
 #pragma endregion
@@ -1758,33 +2268,6 @@ void UCavrnusFunctionLibrary::PostChatMessage(const FCavrnusSpaceConnection& spa
 	Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildPostChatEntry(spaceConn, Chat));
 }
 
-void UCavrnusFunctionLibrary::QueryAiAboutCurrentSpace(const FCavrnusSpaceConnection& spaceConn, const FString& Question, const FCavrnusAiResponseFunction& onSuccess, const FCavrnusError& onFailure)
-{
-	TFunction<void(FString)> successCallback = [onSuccess](const FString& v)
-		{
-			onSuccess.ExecuteIfBound(v);
-		};
-	CavrnusError errorCallback = [onFailure](const FString& v)
-		{
-			onFailure.ExecuteIfBound(v);
-		};
-
-	QueryAiAboutCurrentSpace(spaceConn, Question, successCallback, errorCallback);
-}
-
-void UCavrnusFunctionLibrary::QueryAiAboutCurrentSpace(const FCavrnusSpaceConnection& spaceConn, const FString& Question, const TFunction<void(FString)>& onSuccess, const CavrnusError& onFailure)
-{
-	int RequestId = Cavrnus::CavrnusRelayModel::GetDataModel()->GetCallbackModel()->RegisterAiReq(onSuccess, onFailure);
-	if (UCavrnusSubsystem* CavrnusSubsystem = UCavrnusSubsystem::Get())
-	{
-		if (const UCavrnusConnectorSettings* CavrnusConnectorSettings = CavrnusSubsystem->GetSettings())
-		{
-			// FString OpenApiKey = CavrnusConnectorSettings->OpenAiApiKey;
-			// Cavrnus::CavrnusRelayModel::GetDataModel()->SendMessage(Cavrnus::CavrnusProtoTranslation::BuildAiRequest(spaceConn, RequestId, Question, OpenApiKey));
-		}
-	}
-}
-
 FString UCavrnusFunctionLibrary::CreateBindingId(Cavrnus::CavrnusUnbind bindingCallback)
 {
 	auto bindingId = Cavrnus::CavrnusBindingModel::GetBindingModel()->RegisterBinding(bindingCallback);
@@ -1802,7 +2285,6 @@ void UCavrnusFunctionLibrary::HookCavrnusShutdown()
 {
 	if (ShutdownHooked)
 	{
-		UE_LOG(LogCavrnusConnector, Warning, TEXT("We have already hooked and prepared for Cavrnus Shutdown."))
 		return;
 	}
 	UiFlowTeardownHandle = FWorldDelegates::OnWorldCleanup.AddStatic(&UCavrnusFunctionLibrary::ShutdownCavrnusSystems);
@@ -1830,20 +2312,10 @@ void UCavrnusFunctionLibrary::ShutdownCavrnusSystems(UWorld* World, bool bSessio
 		UiFlowTeardownHandle.Reset();
 		ShutdownHooked = false;
 		HooksSetUp = false;
-		HasLiveUiFlowManager = false;
+		bSpaceJoinBound = false;
 
-		UCavrnusPawnManager* PawnManager = UCavrnusSubsystem::Get()->Services->Get<UCavrnusPawnManager>();
-		if (PawnManager)
-		{
-			UE_LOG(LogTemp, Warning, TEXT("UCavrnusFunctionLibrary::ShutdownCavrnusSystems: Calling Teardown"));
-			PawnManager->Teardown();
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("UCavrnusFunctionLibrary::ShutdownCavrnusSystems: No Pawn Manager found during shutdown."));
-		}
 		SpawnObjectHelpers::Kill();
-		SpawnedObjectsManager::Kill();
+		FCavrnusRestApiClient::CancelPendingRequests();
 		Cavrnus::CavrnusRelayModel::KillDataModel();
 	}
 }
@@ -1856,11 +2328,25 @@ void UCavrnusFunctionLibrary::BindSpaceJoin()
 void UCavrnusFunctionLibrary::SetupJoinedSpace(const FCavrnusSpaceConnection& spaceConn)
 {
 	CavrnusSpaceUserEvent userAdded = [](const FCavrnusUser& user) {
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusPawnManager>()->RegisterUser(user);
-		};
+		UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+		if (Subsystem && Subsystem->IsRuntimeContextReady())
+		{
+			if (UCavrnusPawnManager* PawnManager = Subsystem->RuntimeContext->Get<UCavrnusPawnManager>())
+			{
+				PawnManager->RegisterUser(user);
+			}
+		}
+	};
 	CavrnusSpaceUserEvent userRemoved = [](const FCavrnusUser& user) {
-		UCavrnusSubsystem::Get()->Services->Get<UCavrnusPawnManager>()->UnregisterUser(user);
-		};
+		UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+		if (Subsystem && Subsystem->IsRuntimeContextReady())
+		{
+			if (UCavrnusPawnManager* PawnManager = Subsystem->RuntimeContext->Get<UCavrnusPawnManager>())
+			{
+				PawnManager->UnregisterUser(user);
+			}
+		}
+	};
 
 	auto bnd = BindSpaceUsers(spaceConn, userAdded, userRemoved);
 	CavrnusGCManager::GetGCManager()->TrackItem(bnd);
@@ -1868,11 +2354,169 @@ void UCavrnusFunctionLibrary::SetupJoinedSpace(const FCavrnusSpaceConnection& sp
 	AwaitAnySpaceExited([bnd]
 		{
 			CavrnusGCManager::GetGCManager()->UntrackItem(bnd);
-
-			UCavrnusSubsystem::Get()->Services->Get<UCavrnusPawnManager>()->Clear();
-			SpawnedObjectsManager::GetSpawnedObjectsManager()->Clear();
-
+		
+			UCavrnusSubsystem* Subsystem = UCavrnusSubsystem::Get();
+			if (Subsystem && Subsystem->IsRuntimeContextReady())
+			{
+				if (UCavrnusPawnManager* PawnManager = Subsystem->RuntimeContext->Get<UCavrnusPawnManager>())
+				{
+					PawnManager->Clear();
+				}
+				if (USpawnedObjectsManager* SpawnedObjectsManager = Subsystem->RuntimeContext->Get<USpawnedObjectsManager>())
+				{
+					SpawnedObjectsManager->Clear();
+				}
+			}
+		
 			BindSpaceJoin();
 		});
 }
+
+#pragma region ExposeOnSpawn Helpers
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnBoolProperty(AActor* Actor, const FString& PropertyName, bool Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::BoolPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnFloatProperty(AActor* Actor, const FString& PropertyName, float Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::FloatPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnStringProperty(AActor* Actor, const FString& PropertyName, const FString& Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::StringPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnVectorProperty(AActor* Actor, const FString& PropertyName, FVector4 Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::VectorPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnTransformProperty(AActor* Actor, const FString& PropertyName, FTransform Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::TransformPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+void UCavrnusFunctionLibrary::SetExposeOnSpawnColorProperty(AActor* Actor, const FString& PropertyName, FLinearColor Value)
+{
+	if (!Actor || PropertyName.IsEmpty())
+	{
+		return;
+	}
+
+	UClass* ActorClass = Actor->GetClass();
+	FProperty* Prop = FindFProperty<FProperty>(ActorClass, *PropertyName);
+	if (!Prop)
+	{
+		return;
+	}
+
+	void* ValuePtr = Prop->ContainerPtrToValuePtr<void>(Actor);
+	if (!ValuePtr)
+	{
+		return;
+	}
+
+	Cavrnus::FPropertyValue CavrnusValue = Cavrnus::FPropertyValue::ColorPropValue(Value);
+	FCavrnusSpawnPropertyHelpers::CavrnusValueToProperty(CavrnusValue, Prop, ValuePtr);
+}
+
+#pragma endregion
 

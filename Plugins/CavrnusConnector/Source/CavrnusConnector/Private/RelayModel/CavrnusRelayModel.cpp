@@ -12,17 +12,19 @@
 #include "RelayModel/CavrnusDataCache.h"
 #include <HAL/PlatformTime.h>
 #include "CoreMinimal.h"
+#include "CavrnusConnectorModule.h"
 #include "Types/CavrnusSpawnedObject.h"
-#include "CavrnusSubsystem.h"
+#include "Core/Subsystems/CavrnusSubsystem.h"
 
 namespace Cavrnus
 {
 	CavrnusRelayModel* CavrnusRelayModel::Instance = nullptr;
+	bool CavrnusRelayModel::bIsAlive = true;
 
 	CavrnusRelayModel::CavrnusRelayModel()
 	{
 		// Get settings class
-		const UCavrnusConnectorSettings* settings = UCavrnusSubsystem::Get()->GetSettings();
+		const UCavrnusConnectorSettings* settings = UCavrnusConnectorSettings::Get();
 		if (!settings)
 		{
 			UE_LOG(LogCavrnusConnector, Log, TEXT("[CavrnusRelayModel::CavrnusRelayModel()] Could not get UCavrnusConnectorSettings class."));
@@ -35,17 +37,25 @@ namespace Cavrnus
 		//interopLayer = new CavrnusInteropLayerNet(RelayNetIPAddress, RelayNetPort);
 		interopLayer = new CavrnusInteropLayerNative();
 
+		globalPermissionsModel = nullptr;
 		dataState = new DataState();
 		callbackModel = new RelayCallbackModel(this);
 		dataCache = new CavrnusDataCache();
 
 		interopLayer->Start();
+
+		bIsAlive = true;
 	}
 
 	CavrnusRelayModel::~CavrnusRelayModel()
 	{
 		delete interopLayer;
 		delete callbackModel;
+		delete globalPermissionsModel;
+
+		// These were leaked — clean up owned heap objects
+		delete dataState;
+		delete dataCache;
 
 		for (const auto& kvp : spacePermissionsModelLookup)
 		{
@@ -67,10 +77,22 @@ namespace Cavrnus
 		return Instance;
 	}
 
+	bool CavrnusRelayModel::IsAlive()
+	{
+		return bIsAlive;
+	}
+
 	void CavrnusRelayModel::KillDataModel()
 	{
+		bIsAlive = false;
+
 		if (Instance != nullptr)
 		{
+			// Shut down the interop layer first so the DLL's background threads
+			// can finish before we destroy any state they might reference.
+			if (Instance->interopLayer)
+				Instance->interopLayer->Shutdown();
+
 			delete Instance;
 			Instance = nullptr;
 		}
@@ -220,8 +242,24 @@ namespace Cavrnus
 			callbackModel->HandleServerCallback(msg.genericresponse().reqid(), msg);
 			break;
 		case ServerData::RelayRemoteMessage::kShutdownSpaceConnectionResp:
-			dataState->RemoveSpaceConnection(msg.shutdownspaceconnectionresp().spaceconn().spaceconnectionid());
+		{
+			int spaceConnId = msg.shutdownspaceconnectionresp().spaceconn().spaceconnectionid();
+			UE_LOG(LogCavrnusConnector, Log, TEXT("[CavrnusRelayModel] Space connection %d shutdown confirmed by server. Cleaning up space models."), spaceConnId);
+			dataState->RemoveSpaceConnection(spaceConnId);
+
+			if (spacePropertyModelLookup.Contains(spaceConnId))
+			{
+				delete spacePropertyModelLookup[spaceConnId];
+				spacePropertyModelLookup.Remove(spaceConnId);
+			}
+			if (spacePermissionsModelLookup.Contains(spaceConnId))
+			{
+				delete spacePermissionsModelLookup[spaceConnId];
+				spacePermissionsModelLookup.Remove(spaceConnId);
+			}
+			UE_LOG(LogCavrnusConnector, Log, TEXT("[CavrnusRelayModel] Space connection %d cleanup complete. Remaining connections: %d"), spaceConnId, dataState->GetCurrentSpaceConnections().Num());
 			break;
+		}
 		case ServerData::RelayRemoteMessage::kGetAudioInputDevicesResp:
 			callbackModel->HandleServerCallback(msg.getaudioinputdevicesresp().reqid(), msg);
 			break;
@@ -397,6 +435,12 @@ namespace Cavrnus
 		if (spacePropertyModelLookup[spaceConn.SpaceConnectionId]->SpawnedObjects.Contains(propsContainerName))
 			return;
 
+		if (!ObjectCreationCallback)
+		{
+			UE_LOG(LogCavrnusConnector, Warning, TEXT("ObjectAdded received but no ObjectCreationCallback registered, ignoring."));
+			return;
+		}
+
 		FCavrnusSpawnedObject SpawnedObject;
 		SpawnedObject.SpaceConnection = spaceConn;
 		SpawnedObject.PropertiesContainerName = propsContainerName;
@@ -419,13 +463,20 @@ namespace Cavrnus
 		if (!spacePropertyModelLookup[spaceConn.SpaceConnectionId]->SpawnedObjects.Contains(propsContainerName))
 			return;
 
+		if (!ObjectDestructionCallback)
+		{
+			UE_LOG(LogCavrnusConnector, Warning, TEXT("ObjectRemoved received but no ObjectDestructionCallback registered, ignoring."));
+			spacePropertyModelLookup[spaceConn.SpaceConnectionId]->SpawnedObjects.Remove(propsContainerName);
+			return;
+		}
+
 		FCavrnusSpawnedObject SpawnedObject;
 		SpawnedObject.SpaceConnection = spaceConn;
 		SpawnedObject.PropertiesContainerName = propsContainerName;
 
 		(*ObjectDestructionCallback)(SpawnedObject);
 
-		spacePropertyModelLookup[ObjectRemoved.spaceconn().spaceconnectionid()]->SpawnedObjects.Remove(propsContainerName);
+		spacePropertyModelLookup[spaceConn.SpaceConnectionId]->SpawnedObjects.Remove(propsContainerName);
 	}
 
 	void CavrnusRelayModel::HandlePermissionStatus(const ServerData::PermissionStatus& PermissionStatus)
@@ -457,6 +508,14 @@ namespace Cavrnus
 
 	void CavrnusRelayModel::HandlePropMetadataStatus(const ServerData::PropMetadataStatus& metadataStatus)
 	{
+		int spaceConnId = metadataStatus.spaceconn().spaceconnectionid();
+
+		if (!spacePropertyModelLookup.Contains(spaceConnId))
+			spacePropertyModelLookup.Add(spaceConnId, new SpacePropertyModel());
+
+		spacePropertyModelLookup[spaceConnId]->UpdatePropMetadata(
+			FAbsolutePropertyId(UTF8_TO_TCHAR(metadataStatus.propertypath().id().c_str())),
+			metadataStatus.isreadonly());
 	}
 
 	void CavrnusRelayModel::HandleChatAdded(const ServerData::ChatAdded& chatAdded)

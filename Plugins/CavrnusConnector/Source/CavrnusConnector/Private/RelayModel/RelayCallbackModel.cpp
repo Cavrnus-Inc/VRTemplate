@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2025 Cavrnus. All rights reserved.
+// Copyright (c) 2025 Cavrnus. All rights reserved.
 
 #include "RelayModel/RelayCallbackModel.h"
 #include "CoreMinimal.h"
@@ -185,11 +185,21 @@ namespace Cavrnus
 			FString orgname = UTF8_TO_TCHAR(resp.auth().orgname().c_str());
 
 			FCavrnusAuthentication* auth = new FCavrnusAuthentication(token, server, userdisplayname, orgname);
-			HandleAuthRecv(*auth);
 
+			// Set auth on DataState BEFORE firing callbacks so REST API calls
+			// made from within callbacks can see the authenticated state
 			relayModel->GetDataState()->CurrentAuthentication = auth;
 
+			// Ensure CurrentServer is set from the auth response so REST API
+			// calls made from AwaitAuthentication callbacks have a valid server
+			if (relayModel->GetDataState()->CurrentServer.IsEmpty() && !server.IsEmpty())
+			{
+				relayModel->GetDataState()->CurrentServer = server;
+			}
+
 			UE_LOG(LogCavrnusConnector, Log, TEXT("[AUTH SUCCESS]"));
+
+			HandleAuthRecv(*auth);
 
 			if (LoginAuthenticationCallbacks.Contains(callbackId))
 				(*LoginAuthenticationCallbacks[callbackId])(*auth);
@@ -365,6 +375,8 @@ namespace Cavrnus
 
 	void RelayCallbackModel::HandleFetchAllUserAccountsComplete(int callbackId, ServerData::FetchAllUserAccountsResp resp)
 	{
+		UE_LOG(LogCavrnusConnector, Log, TEXT("FetchAllUserAccounts response: %d accounts"), resp.alluseraccounts().size());
+
 		TArray<FCavrnusUserAccount> UserAccounts;
 
 		for (int i = 0; i < resp.alluseraccounts().size(); i++)
@@ -470,6 +482,20 @@ namespace Cavrnus
 		if (resp.Resp_case() == ServerData::JoinSpaceFromIdResp::kSpaceConn)
 		{
 			FCavrnusSpaceConnectionInfo spaceConnInfo = Cavrnus::CavrnusProtoTranslation::SpaceConnectionInfoFromPb(resp.spaceconn());
+
+			// If tags are empty in the join response, copy from cached space list
+			if (spaceConnInfo.SpaceInfo.Tags.Num() == 0)
+			{
+				const FCavrnusSpaceInfo* cachedSpace = relayModel->GetDataState()->GetJoinableSpaceById(spaceConnInfo.SpaceInfo.SpaceId);
+				if (cachedSpace && cachedSpace->Tags.Num() > 0)
+				{
+					spaceConnInfo.SpaceInfo.Tags = cachedSpace->Tags;
+				}
+				else if (!cachedSpace)
+				{
+					UE_LOG(LogCavrnusConnector, Warning, TEXT("No cached space found for ID: %s - tags may be unavailable"), *spaceConnInfo.SpaceInfo.SpaceId);
+				}
+			}
 
 			relayModel->GetDataState()->AddSpaceConnection(spaceConnInfo);
 

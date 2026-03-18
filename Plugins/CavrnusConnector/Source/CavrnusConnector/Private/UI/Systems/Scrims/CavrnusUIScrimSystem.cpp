@@ -60,9 +60,13 @@ void UCavrnusUIScrimSystem::CloseAll()
 	ScrimsMap.Empty();
 }
 
-void UCavrnusUIScrimSystem::Teardown()
+void UCavrnusUIScrimSystem::Dispose()
 {
+	Super::Dispose();
+
 	Displayer->RemoveAll();
+	Scrims.Empty();
+	ScrimsMap.Empty();
 }
 
 UCavrnusBaseScrimWidget* UCavrnusUIScrimSystem::CreateInternal(const UClass* Type, const FCavrnusScrimOptions& Options)
